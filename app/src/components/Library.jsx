@@ -2,7 +2,7 @@ import { useRef, useState } from 'react'
 import { useBookList } from '../hooks/useBook'
 import { saveBook, saveOcr, deleteBook, getPage } from '../db'
 import { fetchOcrJson } from '../utils/r2'
-import * as pdfjsLib from 'pdfjs-dist'
+
 
 export default function Library({ onOpenBook }) {
   const { books, loading, reload } = useBookList()
@@ -63,7 +63,7 @@ export default function Library({ onOpenBook }) {
   return (
     <div className="min-h-screen bg-zinc-950 p-6">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">Liberry</h1>
+        <h1 className="text-2xl font-bold">Library</h1>
         <button
           className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50"
           disabled={importing}
@@ -98,14 +98,7 @@ export default function Library({ onOpenBook }) {
         </div>
       )}
 
-      {/* Debug info — remove after diagnosing */}
-      <div className="mb-4 bg-zinc-900 rounded p-2 text-xs text-zinc-500 font-mono break-all">
-        <div>pdfjs api: {pdfjsLib.version}</div>
-        <div>worker: {pdfjsLib.GlobalWorkerOptions.workerSrc}</div>
-        <div>ua: {navigator.userAgent.slice(0, 80)}</div>
-      </div>
-
-      {loading ? (
+{loading ? (
         <p className="text-zinc-500">Loading...</p>
       ) : books.length === 0 ? (
         <p className="text-zinc-500">No books yet. Import a PDF to get started.</p>
