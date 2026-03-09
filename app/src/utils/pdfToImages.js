@@ -1,6 +1,10 @@
 import * as pdfjsLib from 'pdfjs-dist'
 
-pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs'
+// Resolve worker from installed package so versions always match
+pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+  'pdfjs-dist/build/pdf.worker.min.mjs',
+  import.meta.url
+).href
 
 export async function pdfToImages(file, onProgress) {
   const buffer = await file.arrayBuffer()
