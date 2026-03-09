@@ -2,6 +2,7 @@ import { useRef, useState } from 'react'
 import { useBookList } from '../hooks/useBook'
 import { saveBook, saveOcr, deleteBook, getPage } from '../db'
 import { fetchOcrJson } from '../utils/r2'
+import * as pdfjsLib from 'pdfjs-dist'
 
 export default function Library({ onOpenBook }) {
   const { books, loading, reload } = useBookList()
@@ -96,6 +97,13 @@ export default function Library({ onOpenBook }) {
           {error}
         </div>
       )}
+
+      {/* Debug info — remove after diagnosing */}
+      <div className="mb-4 bg-zinc-900 rounded p-2 text-xs text-zinc-500 font-mono break-all">
+        <div>pdfjs api: {pdfjsLib.version}</div>
+        <div>worker: {pdfjsLib.GlobalWorkerOptions.workerSrc}</div>
+        <div>ua: {navigator.userAgent.slice(0, 80)}</div>
+      </div>
 
       {loading ? (
         <p className="text-zinc-500">Loading...</p>
