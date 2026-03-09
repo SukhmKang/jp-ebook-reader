@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import { useBookList } from '../hooks/useBook'
-import { saveBook, savePdf, saveOcr, deleteBook, getPdf, getPage } from '../db'
+import { saveBook, savePage, saveOcr, deleteBook, getPage } from '../db'
 import { loadPdfDoc, renderPdfPage } from '../utils/pdfToImages'
 import { fetchOcrJson } from '../utils/r2'
 
@@ -12,19 +12,11 @@ export default function Library({ onOpenBook }) {
   const [covers, setCovers] = useState({})
   const fileInputRef = useRef(null)
 
-  // Load cover image on demand
+  // Cover is stored as a single page thumbnail during import
   async function getCover(book) {
     if (covers[book.id]) return
-    if (book.storedAs === 'pdf') {
-      const blob = await getPdf(book.id)
-      if (!blob) return
-      const doc = await loadPdfDoc(blob)
-      const img = await renderPdfPage(doc, 0)
-      setCovers((c) => ({ ...c, [book.id]: img }))
-    } else {
-      const img = await getPage(book.id, 0)
-      if (img) setCovers((c) => ({ ...c, [book.id]: img }))
-    }
+    const img = await getPage(book.id, 0)
+    if (img) setCovers((c) => ({ ...c, [book.id]: img }))
   }
 
   async function handleImport(e) {
@@ -37,17 +29,26 @@ export default function Library({ onOpenBook }) {
     try {
       const filename = file.name.replace(/\.pdf$/i, '')
 
-      // Fetch OCR JSON from R2 and get page count from PDF in parallel
+      // Fetch OCR JSON and load PDF doc in parallel
       const [ocrJson, pdfDoc] = await Promise.all([
         fetchOcrJson(filename),
-        loadPdfDoc(file).then((doc) => { setProgress(0.5); return doc }),
+        loadPdfDoc(file),
       ])
+      setProgress(0.5)
 
-      const pageCount = pdfDoc.numPages
+      // Render only page 0 as cover thumbnail
+      const coverImage = await renderPdfPage(pdfDoc, 0)
+      setProgress(0.8)
 
-      // Save PDF blob and OCR to IndexedDB (no pre-rendering)
-      await savePdf(filename, file)
-      await saveBook({ id: filename, title: filename.replace(/_/g, ' '), pageCount, storedAs: 'pdf', importedAt: Date.now() })
+      // Save cover thumbnail, book metadata, and OCR — no PDF blob stored
+      await savePage(filename, 0, coverImage)
+      await saveBook({
+        id: filename,
+        title: filename.replace(/_/g, ' '),
+        pageCount: ocrJson.pages.length,
+        storedAs: 'pdf',
+        importedAt: Date.now(),
+      })
       await saveOcr(filename, ocrJson.pages)
       setProgress(1)
 

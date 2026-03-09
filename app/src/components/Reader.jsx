@@ -18,12 +18,14 @@ export default function Reader({ book, onBack }) {
   const [showSearch, setShowSearch] = useState(false)
   const [editingPage, setEditingPage] = useState(false)
   const [pageInput, setPageInput] = useState('')
+  const [pdfFile, setPdfFile] = useState(null)
   const pageInputRef = useRef(null)
+  const pdfInputRef = useRef(null)
   const landscape = useOrientation()
   const step = landscape ? 2 : 1
   const totalPages = book.pageCount
 
-  const { rightImage, leftImage, rightOcr, leftOcr } = useBookReader(book, pageIndex)
+  const { rightImage, leftImage, rightOcr, leftOcr, needsPdf } = useBookReader(book, pageIndex, pdfFile)
 
   const pageDisplay = `${pageIndex + 1}${landscape && pageIndex + 1 < totalPages ? `–${pageIndex + 2}` : ''} / ${totalPages}`
 
@@ -48,7 +50,7 @@ export default function Reader({ book, onBack }) {
   // Keyboard navigation
   useEffect(() => {
     function handleKey(e) {
-      if (showSearch || editingPage) return
+      if (showSearch || editingPage || needsPdf) return
       if (e.key === 'ArrowLeft') goForward()   // RTL: left = forward
       if (e.key === 'ArrowRight') goBack()      // RTL: right = back
       if (e.key === 'Escape') setPopup(null)
@@ -59,7 +61,7 @@ export default function Reader({ book, onBack }) {
     }
     window.addEventListener('keydown', handleKey)
     return () => window.removeEventListener('keydown', handleKey)
-  }, [goBack, goForward, showSearch, editingPage])
+  }, [goBack, goForward, showSearch, editingPage, needsPdf])
 
   // Snap to even page on landscape switch
   useEffect(() => {
@@ -81,6 +83,11 @@ export default function Reader({ book, onBack }) {
   const handleWordTap = useCallback((tap) => {
     setPopup(tap)
   }, [])
+
+  function handlePdfSelect(e) {
+    const file = e.target.files?.[0]
+    if (file) setPdfFile(file)
+  }
 
   return (
     <div className="fixed inset-0 bg-black flex flex-col">
@@ -121,7 +128,7 @@ export default function Reader({ book, onBack }) {
       </div>
 
       {/* Page spread */}
-      <div className="flex-1 overflow-hidden">
+      <div className="flex-1 overflow-hidden relative">
         <PageSpread
           rightImage={rightImage}
           leftImage={leftImage}
@@ -132,6 +139,26 @@ export default function Reader({ book, onBack }) {
           onSwipeRight={goForward}
           singlePage={!landscape}
         />
+
+        {/* PDF select overlay */}
+        {needsPdf && (
+          <div className="absolute inset-0 bg-zinc-950/95 flex flex-col items-center justify-center gap-4 z-20">
+            <p className="text-zinc-300 text-sm font-medium">{book.title}</p>
+            <p className="text-zinc-500 text-xs text-center px-8">
+              Select the PDF file from your Files app to start reading.
+            </p>
+            <label className="bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-3 rounded-lg text-sm font-medium cursor-pointer">
+              Select PDF
+              <input
+                ref={pdfInputRef}
+                type="file"
+                accept=".pdf"
+                className="hidden"
+                onChange={handlePdfSelect}
+              />
+            </label>
+          </div>
+        )}
       </div>
 
       {/* Bottom nav */}

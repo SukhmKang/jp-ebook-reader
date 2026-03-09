@@ -1,6 +1,9 @@
-import { useEffect, useRef, useState } from 'react'
-import { getAllBooks, getPage, getOcr, getPdf } from '../db'
+import { useEffect, useState } from 'react'
+import { getAllBooks, getPage, getOcr } from '../db'
 import { loadPdfDoc, renderPdfPage } from '../utils/pdfToImages'
+
+// Session-level cache: survives navigation between books, cleared on page reload
+const sessionPdfDocs = new Map()
 
 export function useBookList() {
   const [books, setBooks] = useState([])
@@ -17,60 +20,65 @@ export function useBookList() {
   return { books, loading, reload }
 }
 
-export function useBookReader(book, pageIndex) {
+export function useBookReader(book, pageIndex, pdfFile) {
   const [leftImage, setLeftImage] = useState(null)
   const [rightImage, setRightImage] = useState(null)
   const [ocrPages, setOcrPages] = useState(null)
-  const pdfDocRef = useRef(null)
-  const [pdfReady, setPdfReady] = useState(false)
+  const [pdfReady, setPdfReady] = useState(
+    () => !book || book.storedAs !== 'pdf' || sessionPdfDocs.has(book.id)
+  )
 
-  // Load OCR and PDF doc when book changes
+  // Reset and load OCR when book changes
   useEffect(() => {
     if (!book) return
     setOcrPages(null)
     setLeftImage(null)
     setRightImage(null)
-    setPdfReady(false)
-    pdfDocRef.current = null
-
     getOcr(book.id).then(setOcrPages)
 
     if (book.storedAs === 'pdf') {
-      getPdf(book.id).then((blob) => {
-        if (!blob) return
-        return loadPdfDoc(blob)
-      }).then((doc) => {
-        if (!doc) return
-        pdfDocRef.current = doc
-        setPdfReady(true)
-      })
+      setPdfReady(sessionPdfDocs.has(book.id))
+    } else {
+      setPdfReady(true)
     }
   }, [book?.id])
+
+  // Load PDF doc into session cache when user provides a file
+  useEffect(() => {
+    if (!pdfFile || !book || book.storedAs !== 'pdf') return
+    if (sessionPdfDocs.has(book.id)) { setPdfReady(true); return }
+    loadPdfDoc(pdfFile).then((doc) => {
+      sessionPdfDocs.set(book.id, doc)
+      setPdfReady(true)
+    })
+  }, [pdfFile, book?.id])
 
   // Render pages on demand
   useEffect(() => {
     if (!book) return
 
     if (book.storedAs === 'pdf') {
-      if (!pdfReady || !pdfDocRef.current) return
-      const doc = pdfDocRef.current
+      if (!pdfReady) return
+      const doc = sessionPdfDocs.get(book.id)
+      if (!doc) return
+      setRightImage(null)
+      setLeftImage(null)
       renderPdfPage(doc, pageIndex).then(setRightImage)
       if (pageIndex + 1 < book.pageCount) {
         renderPdfPage(doc, pageIndex + 1).then(setLeftImage)
-      } else {
-        setLeftImage(null)
       }
     } else {
-      // Legacy: pre-rendered images stored in IndexedDB
+      // Legacy: pre-rendered images in IndexedDB
       getPage(book.id, pageIndex).then(setRightImage)
       getPage(book.id, pageIndex + 1).then(setLeftImage)
     }
-  }, [book, pageIndex, pdfReady])
+  }, [book?.id, pageIndex, pdfReady])
 
   return {
     rightImage,
     leftImage,
     rightOcr: ocrPages?.[pageIndex] ?? null,
     leftOcr: ocrPages?.[pageIndex + 1] ?? null,
+    needsPdf: book?.storedAs === 'pdf' && !pdfReady,
   }
 }
