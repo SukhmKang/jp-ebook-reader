@@ -21,5 +21,9 @@ app/node_modules/
 app/dist/
 app/public/dict/jmdict.json
 
+# Logs
+*.log
+ocr_log.txt
+
 # macOS
 .DS_Store
