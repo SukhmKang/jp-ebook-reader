@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import { useBookList } from '../hooks/useBook'
-import { saveBook, savePage, saveOcr, deleteBook, getPage } from '../db'
-import { pdfToImages } from '../utils/pdfToImages'
+import { saveBook, savePdf, saveOcr, deleteBook, getPdf, getPage } from '../db'
+import { loadPdfDoc, renderPdfPage } from '../utils/pdfToImages'
 import { fetchOcrJson } from '../utils/r2'
 
 export default function Library({ onOpenBook }) {
@@ -12,11 +12,19 @@ export default function Library({ onOpenBook }) {
   const [covers, setCovers] = useState({})
   const fileInputRef = useRef(null)
 
-  // Load cover images on demand
+  // Load cover image on demand
   async function getCover(book) {
     if (covers[book.id]) return
-    const img = await getPage(book.id, 0)
-    if (img) setCovers((c) => ({ ...c, [book.id]: img }))
+    if (book.storedAs === 'pdf') {
+      const blob = await getPdf(book.id)
+      if (!blob) return
+      const doc = await loadPdfDoc(blob)
+      const img = await renderPdfPage(doc, 0)
+      setCovers((c) => ({ ...c, [book.id]: img }))
+    } else {
+      const img = await getPage(book.id, 0)
+      if (img) setCovers((c) => ({ ...c, [book.id]: img }))
+    }
   }
 
   async function handleImport(e) {
@@ -29,19 +37,19 @@ export default function Library({ onOpenBook }) {
     try {
       const filename = file.name.replace(/\.pdf$/i, '')
 
-      // Fetch OCR JSON from R2
-      const ocrJson = await fetchOcrJson(filename)
+      // Fetch OCR JSON from R2 and get page count from PDF in parallel
+      const [ocrJson, pdfDoc] = await Promise.all([
+        fetchOcrJson(filename),
+        loadPdfDoc(file).then((doc) => { setProgress(0.5); return doc }),
+      ])
 
-      // Convert PDF pages to images
-      const images = await pdfToImages(file, (p) => setProgress(p * 0.9))
+      const pageCount = pdfDoc.numPages
 
-      // Save to IndexedDB
-      await saveBook({ id: filename, title: filename.replace(/_/g, ' '), pageCount: images.length, importedAt: Date.now() })
+      // Save PDF blob and OCR to IndexedDB (no pre-rendering)
+      await savePdf(filename, file)
+      await saveBook({ id: filename, title: filename.replace(/_/g, ' '), pageCount, storedAs: 'pdf', importedAt: Date.now() })
       await saveOcr(filename, ocrJson.pages)
-      for (let i = 0; i < images.length; i++) {
-        await savePage(filename, i, images[i])
-        setProgress(0.9 + (i / images.length) * 0.1)
-      }
+      setProgress(1)
 
       await reload()
     } catch (err) {

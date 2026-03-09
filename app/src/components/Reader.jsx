@@ -23,7 +23,7 @@ export default function Reader({ book, onBack }) {
   const step = landscape ? 2 : 1
   const totalPages = book.pageCount
 
-  const { rightImage, leftImage, rightOcr, leftOcr } = useBookReader(book.id, pageIndex)
+  const { rightImage, leftImage, rightOcr, leftOcr } = useBookReader(book, pageIndex)
 
   const pageDisplay = `${pageIndex + 1}${landscape && pageIndex + 1 < totalPages ? `–${pageIndex + 2}` : ''} / ${totalPages}`
 
