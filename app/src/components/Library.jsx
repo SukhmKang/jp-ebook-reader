@@ -1,7 +1,6 @@
 import { useRef, useState } from 'react'
 import { useBookList } from '../hooks/useBook'
-import { saveBook, savePage, saveOcr, deleteBook, getPage } from '../db'
-import { loadPdfDoc, renderPdfPage } from '../utils/pdfToImages'
+import { saveBook, saveOcr, deleteBook, getPage } from '../db'
 import { fetchOcrJson } from '../utils/r2'
 
 export default function Library({ onOpenBook }) {
@@ -29,19 +28,11 @@ export default function Library({ onOpenBook }) {
     try {
       const filename = file.name.replace(/\.pdf$/i, '')
 
-      // Fetch OCR JSON and load PDF doc in parallel
-      const [ocrJson, pdfDoc] = await Promise.all([
-        fetchOcrJson(filename),
-        loadPdfDoc(file),
-      ])
-      setProgress(0.5)
+      // Fetch OCR JSON from R2 — no PDF loading during import
+      const ocrJson = await fetchOcrJson(filename)
+      setProgress(0.7)
 
-      // Render only page 0 as cover thumbnail
-      const coverImage = await renderPdfPage(pdfDoc, 0)
-      setProgress(0.8)
-
-      // Save cover thumbnail, book metadata, and OCR — no PDF blob stored
-      await savePage(filename, 0, coverImage)
+      // Save book metadata and OCR only (cover is cached after first read)
       await saveBook({
         id: filename,
         title: filename.replace(/_/g, ' '),

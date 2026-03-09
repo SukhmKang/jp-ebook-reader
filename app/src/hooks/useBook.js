@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { getAllBooks, getPage, getOcr } from '../db'
+import { getAllBooks, getPage, getOcr, savePage } from '../db'
 import { loadPdfDoc, renderPdfPage } from '../utils/pdfToImages'
 
 // Session-level cache: survives navigation between books, cleared on page reload
@@ -63,7 +63,11 @@ export function useBookReader(book, pageIndex, pdfFile) {
       if (!doc) return
       setRightImage(null)
       setLeftImage(null)
-      renderPdfPage(doc, pageIndex).then(setRightImage)
+      renderPdfPage(doc, pageIndex).then((img) => {
+        setRightImage(img)
+        // Cache page 0 as cover thumbnail for the library
+        if (pageIndex === 0) savePage(book.id, 0, img)
+      })
       if (pageIndex + 1 < book.pageCount) {
         renderPdfPage(doc, pageIndex + 1).then(setLeftImage)
       }
