@@ -1,0 +1,25 @@
+# Environment
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.pyc
+venv/
+
+# Source media (large files, personal content)
+jpegs/
+pdfs/
+jmdict-eng-*.json
+
+# OCR cache
+ocr_pipeline/cache/
+
+# App build + deps
+app/node_modules/
+app/dist/
+app/public/dict/jmdict.json
+
+# macOS
+.DS_Store
