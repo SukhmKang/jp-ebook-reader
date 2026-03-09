@@ -6,7 +6,8 @@ let dictPromise = null
 function getDict() {
   if (dictSingleton) return Promise.resolve(dictSingleton)
   if (dictPromise) return dictPromise
-  dictPromise = fetch('/dict/jmdict.json')
+  const r2Base = import.meta.env.VITE_R2_PUBLIC_URL?.replace(/\/$/, '')
+  dictPromise = fetch(`${r2Base}/jmdict.json`)
     .then((r) => r.json())
     .then((d) => {
       dictSingleton = d
