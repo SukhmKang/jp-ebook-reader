@@ -69,13 +69,19 @@ export default function PageSpread({
   singlePage = false,
 }) {
   const startX = useRef(null)
+  const multiTouch = useRef(false)
 
   const handleTouchStart = useCallback((e) => {
+    if (e.touches.length > 1) { multiTouch.current = true; startX.current = null; return }
+    multiTouch.current = false
+    // Don't intercept swipes when zoomed in — let iOS handle pan/scroll
+    if ((window.visualViewport?.scale ?? 1) > 1) { startX.current = null; return }
     startX.current = e.touches[0].clientX
   }, [])
 
   const handleTouchEnd = useCallback((e) => {
-    if (startX.current === null) return
+    if (multiTouch.current || startX.current === null) { startX.current = null; return }
+    if ((window.visualViewport?.scale ?? 1) > 1) { startX.current = null; return }
     const dx = e.changedTouches[0].clientX - startX.current
     if (Math.abs(dx) > 50) {
       dx < 0 ? onSwipeLeft?.() : onSwipeRight?.()
