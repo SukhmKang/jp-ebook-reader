@@ -2,7 +2,7 @@ import * as pdfjsLib from 'pdfjs-dist'
 
 // Resolve worker from installed package so versions always match
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
-  'pdfjs-dist/build/pdf.worker.min.mjs',
+  'pdfjs-dist/build/pdf.worker.min.js',
   import.meta.url
 ).href
 
