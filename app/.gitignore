@@ -18,7 +18,6 @@ dist-ssr
 .idea
 .DS_Store
 .env
-public/dict/jmdict.json
 *.suo
 *.ntvs*
 *.njsproj
