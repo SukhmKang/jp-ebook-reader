@@ -63,7 +63,7 @@ export default function Library({ onOpenBook }) {
   return (
     <div className="min-h-screen bg-zinc-950 p-6">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">Library</h1>
+        <h1 className="text-2xl font-bold">Liberry</h1>
         <button
           className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50"
           disabled={importing}
