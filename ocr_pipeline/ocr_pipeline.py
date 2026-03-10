@@ -101,23 +101,13 @@ def ocr_page(image_path: Path, api_key: str) -> dict | None:
                 words = []
 
                 for word in para.get("words", []):
-                    symbols = []
-                    word_text = ""
-
-                    for sym in word.get("symbols", []):
-                        sym_text = sym.get("text", "")
-                        word_text += sym_text
-                        sym_verts = sym.get("boundingBox", {}).get("vertices", [])
-                        symbols.append({
-                            "text": sym_text,
-                            "bounding_box": vertices_to_bbox(sym_verts),
-                        })
-
+                    word_text = "".join(
+                        sym.get("text", "") for sym in word.get("symbols", [])
+                    )
                     word_verts = word.get("boundingBox", {}).get("vertices", [])
                     words.append({
                         "text": word_text,
                         "bounding_box": vertices_to_bbox(word_verts),
-                        "symbols": symbols,
                     })
                     para_text_parts.append(word_text)
 
@@ -239,7 +229,7 @@ def run_pipeline(pdf_path: Path, dpi: int, output_dir: Path, force: bool) -> Non
             "dpi": dpi,
             "pages": page_results,
         }
-        json_bytes = json.dumps(output, ensure_ascii=False, indent=2).encode("utf-8")
+        json_bytes = json.dumps(output, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
 
         # Save local cache
         local_json_path.parent.mkdir(parents=True, exist_ok=True)
