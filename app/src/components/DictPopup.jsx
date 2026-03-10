@@ -40,12 +40,12 @@ export default function DictPopup({ tap, onClose }) {
   return (
     <div
       ref={overlayRef}
-      className="fixed z-50 flex flex-col justify-end"
+      className="fixed z-50"
       style={{ top: 0, left: 0, width: '100vw', height: '100vh' }}
       onClick={onClose}
     >
       <div
-        className="bg-zinc-900 border-t border-zinc-700 rounded-t-2xl shadow-2xl max-h-64 overflow-y-auto"
+        className="absolute bottom-0 left-0 right-0 bg-zinc-900 border-t border-zinc-700 rounded-t-2xl shadow-2xl max-h-64 overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex justify-between items-center px-4 pt-4 pb-2">
