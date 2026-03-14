@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { getDict as getDbDict, saveDict } from '../db'
 
 let dictSingleton = null
 let dictPromise = null
@@ -6,13 +7,21 @@ let dictPromise = null
 function getDict() {
   if (dictSingleton) return Promise.resolve(dictSingleton)
   if (dictPromise) return dictPromise
-  const r2Base = import.meta.env.VITE_R2_PUBLIC_URL?.replace(/\/$/, '')
-  dictPromise = fetch(`${r2Base}/jmdict.json`)
-    .then((r) => r.json())
-    .then((d) => {
-      dictSingleton = d
-      return d
-    })
+  dictPromise = getDbDict().then((cached) => {
+    if (cached) {
+      dictSingleton = cached
+      return cached
+    }
+    // Not in IndexedDB — fetch from R2 and persist
+    const r2Base = import.meta.env.VITE_R2_PUBLIC_URL?.replace(/\/$/, '')
+    return fetch(`${r2Base}/jmdict.json`)
+      .then((r) => r.json())
+      .then((d) => {
+        dictSingleton = d
+        saveDict(d) // persist for offline use, don't await
+        return d
+      })
+  })
   return dictPromise
 }
 

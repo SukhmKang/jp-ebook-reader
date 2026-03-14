@@ -1,7 +1,7 @@
 import { openDB } from 'idb'
 
 const DB_NAME = 'manga-reader'
-const DB_VERSION = 2
+const DB_VERSION = 3
 
 let dbPromise = null
 
@@ -16,6 +16,9 @@ function getDB() {
         }
         if (oldVersion < 2) {
           db.createObjectStore('pdfs', { keyPath: 'id' })
+        }
+        if (oldVersion < 3) {
+          db.createObjectStore('dict', { keyPath: 'id' })
         }
       },
     })
@@ -73,6 +76,18 @@ export async function getPdf(bookId) {
   const db = await getDB()
   const record = await db.get('pdfs', bookId)
   return record?.blob ?? null
+}
+
+// Dictionary
+export async function saveDict(data) {
+  const db = await getDB()
+  await db.put('dict', { id: 'jmdict', data })
+}
+
+export async function getDict() {
+  const db = await getDB()
+  const record = await db.get('dict', 'jmdict')
+  return record?.data ?? null
 }
 
 // OCR
