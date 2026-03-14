@@ -41,9 +41,9 @@ export default defineConfig({
         maximumFileSizeToCacheInBytes: 30 * 1024 * 1024,
         runtimeCaching: [
           {
-            urlPattern: /\/dict\/jmdict\.json/,
+            urlPattern: /jmdict\.json/,
             handler: 'CacheFirst',
-            options: { cacheName: 'dict-cache' },
+            options: { cacheName: 'dict-cache', rangeRequests: true },
           },
           {
             urlPattern: /\/kuromoji\/.*/,
