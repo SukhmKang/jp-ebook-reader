@@ -44,18 +44,18 @@ function PagePanel({ imageData, ocrPage, onWordTap }) {
   }, [])
 
   return (
-    <div ref={containerRef} className="relative flex-1 h-full overflow-hidden">
+    <div ref={containerRef} className="relative h-full flex-shrink-0">
       {imageData ? (
         <img
           ref={imgRef}
           src={imageData}
           alt=""
-          className="w-full h-full object-contain"
+          className="h-full w-auto"
           draggable={false}
           onLoad={updateRect}
         />
       ) : (
-        <div className="w-full h-full bg-zinc-900" />
+        <div className="h-full aspect-[2/3] bg-zinc-900" />
       )}
       <WordOverlay ocrPage={ocrPage} imageRect={imageRect} onWordTap={onWordTap} />
     </div>
@@ -91,14 +91,16 @@ export default function PageSpread({
 
   return (
     <div
-      className="flex w-full h-full"
+      className="flex w-full h-full justify-center overflow-hidden"
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
     >
-      {!singlePage && (
-        <PagePanel imageData={leftImage} ocrPage={leftOcr} onWordTap={onWordTap} />
-      )}
-      <PagePanel imageData={rightImage} ocrPage={rightOcr} onWordTap={onWordTap} />
+      <div className="flex h-full">
+        {!singlePage && (
+          <PagePanel imageData={leftImage} ocrPage={leftOcr} onWordTap={onWordTap} />
+        )}
+        <PagePanel imageData={rightImage} ocrPage={rightOcr} onWordTap={onWordTap} />
+      </div>
     </div>
   )
 }
