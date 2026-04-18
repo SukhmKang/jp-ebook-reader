@@ -1,17 +1,42 @@
 import { useEffect, useRef, useState } from 'react'
 import { useKuromoji } from '../hooks/useKuromoji'
 import { useDict } from '../hooks/useDict'
+import { explainInJapanese } from '../utils/claude'
 
 export default function DictPopup({ tap, onClose }) {
   const { tokenizer, ready: kReady } = useKuromoji()
   const { lookup, ready: dReady } = useDict()
   const [results, setResults] = useState(null)
+  const [explaining, setExplaining] = useState(false)
+  const [explanation, setExplanation] = useState('')
+  const [explainError, setExplainError] = useState(null)
+  const [userPrompt, setUserPrompt] = useState('')
   const overlayRef = useRef(null)
 
   useEffect(() => {
     if (!tap || !dReady) return
     setResults(lookup(tokenizer, tap))
+    setExplaining(false)
+    setExplanation('')
+    setExplainError(null)
+    setUserPrompt('')
   }, [tap, kReady, dReady])
+
+  async function handleExplain() {
+    setExplaining(true)
+    setExplanation('')
+    setExplainError(null)
+    try {
+      await explainInJapanese(
+        tap.paraText,
+        tap.pageText ?? null,
+        (chunk) => setExplanation((s) => s + chunk),
+        userPrompt,
+      )
+    } catch (err) {
+      setExplainError(err.message)
+    }
+  }
 
   // Pin overlay to visual viewport so it stays visible when zoomed in on iOS
   useEffect(() => {
@@ -73,6 +98,39 @@ export default function DictPopup({ tap, onClose }) {
                 </ol>
               </div>
             ))
+          )}
+
+          {/* Explain section */}
+          {!loading && (
+            <div className="border-t border-zinc-800 mt-3 pt-3">
+              <p className="text-xs text-zinc-500 mb-1 truncate">「{tap.paraText}」</p>
+              <input
+                type="text"
+                placeholder="気になる点（任意）"
+                value={userPrompt}
+                onChange={(e) => setUserPrompt(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter' && !explaining) handleExplain() }}
+                className="w-full bg-zinc-800 text-white text-sm rounded px-3 py-1.5 mb-2 outline-none focus:ring-1 focus:ring-indigo-500 placeholder-zinc-600"
+              />
+              <button
+                onClick={handleExplain}
+                disabled={explaining}
+                className="text-xs bg-indigo-700 hover:bg-indigo-600 disabled:opacity-50 text-white px-3 py-1.5 rounded w-full"
+              >
+                {explaining && !explanation ? 'やさしく説明中…' : 'やさしく説明'}
+              </button>
+
+              {explainError && (
+                <p className="text-red-400 text-xs mt-2">{explainError}</p>
+              )}
+
+              {explanation && (
+                <p className="text-sm text-zinc-200 mt-3 leading-relaxed whitespace-pre-wrap">
+                  {explanation}
+                  {explaining && <span className="animate-pulse">▌</span>}
+                </p>
+              )}
+            </div>
           )}
         </div>
       </div>

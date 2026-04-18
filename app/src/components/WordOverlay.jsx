@@ -6,6 +6,10 @@ export default function WordOverlay({ ocrPage, imageRect, onWordTap }) {
   const scaleX = dW / srcW
   const scaleY = dH / srcH
 
+  const pageText = ocrPage.blocks
+    ?.flatMap((b) => b.paragraphs?.map((p) => p.text) ?? [])
+    .join('\n') ?? ''
+
   return (
     <div className="absolute inset-0 pointer-events-none">
       {ocrPage.blocks?.flatMap((block, bi) =>
@@ -32,6 +36,7 @@ export default function WordOverlay({ ocrPage, imageRect, onWordTap }) {
                   onWordTap({
                     text: word.text,
                     paraText: para.text,
+                    pageText,
                     charOffset: offset,
                     x: sx + sw / 2,
                     y: sy + sh / 2,
