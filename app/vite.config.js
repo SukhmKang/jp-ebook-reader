@@ -63,6 +63,10 @@ export default defineConfig({
           { src: 'icon-192.png', sizes: '192x192', type: 'image/png' },
           { src: 'icon-512.png', sizes: '512x512', type: 'image/png' },
         ],
+        screenshots: [
+          { src: 'screenshot-wide.png', sizes: '1280x720', type: 'image/png', form_factor: 'wide' },
+          { src: 'screenshot-narrow.png', sizes: '390x844', type: 'image/png', form_factor: 'narrow' },
+        ],
       },
     }),
   ],
