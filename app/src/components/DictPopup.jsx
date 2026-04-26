@@ -110,7 +110,7 @@ export default function DictPopup({ tap, onClose }) {
                 placeholder="気になる点（任意）"
                 value={userPrompt}
                 onChange={(e) => setUserPrompt(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter' && !explaining) handleExplain() }}
+                onKeyDown={(e) => { if (e.key === 'Enter' && !e.isComposing && !explaining) handleExplain() }}
                 className="w-full bg-zinc-800 text-white text-sm rounded px-3 py-1.5 mb-2 outline-none focus:ring-1 focus:ring-indigo-500 placeholder-zinc-600"
               />
               <button
