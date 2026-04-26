@@ -20,7 +20,7 @@ function getContainedRect(containerW, containerH, naturalW, naturalH) {
   return { width: renderedW, height: renderedH, offsetX, offsetY }
 }
 
-function PagePanel({ imageData, ocrPage, onWordTap }) {
+function PagePanel({ imageData, ocrPage, onWordTap, single = false }) {
   const containerRef = useRef(null)
   const imgRef = useRef(null)
   const [imageRect, setImageRect] = useState(null)
@@ -44,13 +44,13 @@ function PagePanel({ imageData, ocrPage, onWordTap }) {
   }, [])
 
   return (
-    <div ref={containerRef} className="relative h-full flex-shrink-0">
+    <div ref={containerRef} className={`relative h-full ${single ? 'w-full' : 'flex-shrink-0'}`}>
       {imageData ? (
         <img
           ref={imgRef}
           src={imageData}
           alt=""
-          className="h-full w-auto"
+          className={single ? "h-full w-full object-contain" : "h-full w-auto"}
           draggable={false}
           onLoad={updateRect}
         />
@@ -95,11 +95,11 @@ export default function PageSpread({
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
     >
-      <div className="flex h-full">
+      <div className={`flex h-full ${singlePage ? 'w-full' : ''}`}>
         {!singlePage && (
           <PagePanel imageData={leftImage} ocrPage={leftOcr} onWordTap={onWordTap} />
         )}
-        <PagePanel imageData={rightImage} ocrPage={rightOcr} onWordTap={onWordTap} />
+        <PagePanel imageData={rightImage} ocrPage={rightOcr} onWordTap={onWordTap} single={singlePage} />
       </div>
     </div>
   )
