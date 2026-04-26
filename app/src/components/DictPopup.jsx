@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import { useKuromoji } from '../hooks/useKuromoji'
 import { useDict } from '../hooks/useDict'
 import { explainInJapanese } from '../utils/claude'
@@ -127,7 +128,7 @@ export default function DictPopup({ tap, onClose }) {
 
               {explanation && (
                 <div className="text-sm text-zinc-200 mt-3 leading-relaxed prose prose-sm prose-invert prose-p:my-1 prose-li:my-0 max-w-none">
-                  <ReactMarkdown>{explanation}</ReactMarkdown>
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{explanation}</ReactMarkdown>
                   {explaining && <span className="animate-pulse">▌</span>}
                 </div>
               )}
