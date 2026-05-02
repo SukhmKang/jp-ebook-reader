@@ -24,7 +24,9 @@ export async function explainInJapanese(paraText, pageContext, onChunk, userProm
 与えられた文や表現を、もっとわかりやすい日本語で説明してください。
 ・やさしい言葉を使う
 ・難しい語彙は簡単に解説する
-・簡潔にまとめる
+・3〜5文の自然な文章で説明する（箇条書きや見出しは使わない）
+・原文のトーン（ユーモア、皮肉、悲しみなど）をそのまま伝える
+・教訓や道徳的なまとめは、原文に明示されていない限り加えない
 ・返答はすべて日本語で`,
       messages: [{
         role: 'user',
