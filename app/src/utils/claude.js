@@ -5,7 +5,7 @@ export async function explainInJapanese(paraText, pageContext, onChunk, userProm
     ? `\n\nページの他のテキスト（文脈として）：\n${pageContext}`
     : ''
   const focusBlock = userPrompt.trim()
-    ? `\n\n特に注目してほしい点：${userPrompt.trim()}`
+    ? `\n\nユーザーからの質問：${userPrompt.trim()}\nこの質問に答えながら説明してください。`
     : ''
 
   const response = await fetch('https://api.anthropic.com/v1/messages', {
@@ -25,7 +25,6 @@ export async function explainInJapanese(paraText, pageContext, onChunk, userProm
 ・やさしい言葉を使う
 ・難しい語彙は簡単に解説する
 ・3〜5文の自然な文章で説明する（箇条書きや見出しは使わない）
-・原文のトーン（ユーモア、皮肉、悲しみなど）をそのまま伝える
 ・教訓や道徳的なまとめは、原文に明示されていない限り加えない
 ・返答はすべて日本語で`,
       messages: [{
