@@ -13,6 +13,7 @@ export default function DictPopup({ tap, onClose }) {
   const [explanation, setExplanation] = useState('')
   const [explainError, setExplainError] = useState(null)
   const [userPrompt, setUserPrompt] = useState('')
+  const justComposedRef = useRef(false)
   const overlayRef = useRef(null)
 
   useEffect(() => {
@@ -111,7 +112,13 @@ export default function DictPopup({ tap, onClose }) {
                 placeholder="気になる点（任意）"
                 value={userPrompt}
                 onChange={(e) => setUserPrompt(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter' && !e.isComposing && !explaining) handleExplain() }}
+                onCompositionEnd={() => { justComposedRef.current = true }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    if (justComposedRef.current) { justComposedRef.current = false; return }
+                    if (!explaining) handleExplain()
+                  }
+                }}
                 className="w-full bg-zinc-800 text-white text-sm rounded px-3 py-1.5 mb-2 outline-none focus:ring-1 focus:ring-indigo-500 placeholder-zinc-600"
               />
               <button

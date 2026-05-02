@@ -51,6 +51,8 @@ export default function Reader({ book, onBack }) {
   useEffect(() => {
     function handleKey(e) {
       if (showSearch || editingPage || needsPdf) return
+      const tag = document.activeElement?.tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return
       if (e.key === 'ArrowLeft') goForward()   // RTL: left = forward
       if (e.key === 'ArrowRight') goBack()      // RTL: right = back
       if (e.key === 'Escape') setPopup(null)
