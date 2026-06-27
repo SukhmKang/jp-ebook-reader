@@ -1,13 +1,70 @@
 @import "tailwindcss";
 @plugin "@tailwindcss/typography";
 
+:root {
+  --ink: #15120f;
+  --ink-soft: #1e1a16;
+  --ink-line: #332c24;
+  --paper: #ece4d3;
+  --paper-dim: #a99c87;
+  --paper-faint: #6e6354;
+  --vermillion: #c1432d;
+  --vermillion-soft: rgba(193, 67, 45, 0.16);
+  --gold: #c9a227;
+
+  --font-display: "Shippori Mincho", serif;
+  --font-body: "Zen Kaku Gothic New", "Hiragino Sans", sans-serif;
+}
+
 * {
   box-sizing: border-box;
 }
 
+html {
+  background: var(--ink);
+}
+
 body {
   margin: 0;
-  background: #000;
-  color: #fff;
-  font-family: sans-serif;
+  background: var(--ink);
+  color: var(--paper);
+  font-family: var(--font-body);
+  position: relative;
+}
+
+/* Subtle paper-grain texture overlay */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0.05;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+::selection {
+  background: var(--vermillion-soft);
+  color: var(--paper);
+}
+
+/* Scrollbars */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: var(--ink);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--ink-line);
+  border-radius: 5px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--paper-faint);
+}
+
+.font-display {
+  font-family: var(--font-display);
 }

@@ -1,5 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import { getDict as getDbDict, saveDict } from '../db'
+import { buildLookupResults } from '../utils/lookup'
+
+// Bump whenever the dict index format/content changes (and re-upload jmdict.json
+// to R2 — see ../../upload_dict.py). A mismatch invalidates the IndexedDB cache
+// and busts the HTTP/CDN cache so clients pull the new dict.
+//   1 — original { reading, pos, meanings }
+//   2 — adds `common` flag (build_dict.js)
+const DICT_VERSION = 2
 
 let dictSingleton = null
 let dictPromise = null
@@ -8,17 +16,17 @@ function getDict() {
   if (dictSingleton) return Promise.resolve(dictSingleton)
   if (dictPromise) return dictPromise
   dictPromise = getDbDict().then((cached) => {
-    if (cached) {
-      dictSingleton = cached
-      return cached
+    if (cached && cached.version === DICT_VERSION) {
+      dictSingleton = cached.data
+      return cached.data
     }
-    // Not in IndexedDB — fetch from R2 and persist
+    // Missing or stale cache — fetch from R2 (cache-busted) and persist
     const r2Base = import.meta.env.VITE_R2_PUBLIC_URL?.replace(/\/$/, '')
-    return fetch(`${r2Base}/jmdict.json`)
+    return fetch(`${r2Base}/jmdict.json?v=${DICT_VERSION}`)
       .then((r) => r.json())
       .then((d) => {
         dictSingleton = d
-        saveDict(d) // persist for offline use, don't await
+        saveDict(d, DICT_VERSION) // persist for offline use, don't await
         return d
       })
   })
@@ -41,53 +49,25 @@ export function useDict() {
   function lookup(tokenizer, { text, paraText, charOffset }) {
     if (!ref.current) return []
 
-    // Slice from charOffset to end of paragraph — this is our search string
-    const searchText = paraText ? paraText.slice(charOffset) : text
+    // Slice from charOffset to end of paragraph — the span we scan from.
+    const searchText = (paraText ? paraText.slice(charOffset) : text) || text
 
-    // Generate all prefixes of searchText, longest first
-    const chars = Array.from(searchText)
-    const prefixes = chars.map((_, i) => chars.slice(0, chars.length - i).join(''))
-
-    // Also try kuromoji dictionary form of the tapped word as a fallback
-    const extraForms = new Set()
+    // Use kuromoji's analysis of the tapped word as a ranking hint: its part of
+    // speech biases entry ordering, and its dictionary form is a deinflection
+    // fallback for irregulars.
+    let preferredPos = null
+    let preferredSpelling = null
     if (tokenizer) {
-      const tokens = tokenizer.tokenize(text)
-      const dictForm = tokens[0]?.basic_form
-      if (dictForm && dictForm !== '*' && dictForm !== text) {
-        extraForms.add(dictForm)
+      const token = tokenizer.tokenize(text)[0]
+      if (token) {
+        if (token.pos && token.pos !== '*') preferredPos = token.pos
+        if (token.basic_form && token.basic_form !== '*') preferredSpelling = token.basic_form
       }
     }
 
-    const results = []
-    const seen = new Set()
-
-    for (const prefix of prefixes) {
-      if (seen.has(prefix)) continue
-      seen.add(prefix)
-      const entries = ref.current[prefix]
-      if (entries) results.push({ term: prefix, entries })
-    }
-
-    for (const form of extraForms) {
-      if (seen.has(form)) continue
-      const entries = ref.current[form]
-      if (entries) results.push({ term: form, entries })
-    }
-
-    // Rank by how many characters of the search text (paragraph slice from
-    // tap position) the term shares as a common prefix. This handles kanji
-    // vs hiragana mismatches from kuromoji dict forms correctly.
-    function commonPrefixLen(a, b) {
-      let i = 0
-      while (i < a.length && i < b.length && a[i] === b[i]) i++
-      return i
-    }
-
-    results.sort((a, b) =>
-      commonPrefixLen(b.term, searchText) - commonPrefixLen(a.term, searchText)
-    )
-
-    return results
+    // Condition-aware deinflection + longest-span match + POS-affinity ranking,
+    // ported from the `jp` CLI (see utils/lookup.js, utils/deinflect.js).
+    return buildLookupResults(ref.current, searchText, preferredPos, preferredSpelling)
   }
 
   return { ready, lookup }

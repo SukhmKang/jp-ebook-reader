@@ -79,15 +79,16 @@ export async function getPdf(bookId) {
 }
 
 // Dictionary
-export async function saveDict(data) {
+export async function saveDict(data, version) {
   const db = await getDB()
-  await db.put('dict', { id: 'jmdict', data })
+  await db.put('dict', { id: 'jmdict', data, version })
 }
 
 export async function getDict() {
   const db = await getDB()
   const record = await db.get('dict', 'jmdict')
-  return record?.data ?? null
+  if (!record) return null
+  return { data: record.data, version: record.version ?? null }
 }
 
 // OCR

@@ -94,12 +94,22 @@ export default function Reader({ book, onBack }) {
   return (
     <div className="fixed inset-0 bg-black flex flex-col">
       {/* Top bar */}
-      <div className="flex items-center justify-between px-4 py-2 bg-zinc-900/80 z-10">
-        <button className="text-zinc-300 hover:text-white text-sm" onClick={onBack}>← Library</button>
-        <span className="text-zinc-400 text-sm truncate max-w-xs">{book.title}</span>
+      <div
+        className="flex items-center justify-between px-4 py-2 z-10 border-b"
+        style={{ background: 'rgba(21,18,15,0.92)', borderColor: 'var(--ink-line)' }}
+      >
+        <button
+          className="text-sm font-display transition-colors"
+          style={{ color: 'var(--paper-dim)' }}
+          onClick={onBack}
+        >
+          ← 図書室
+        </button>
+        <span className="text-sm truncate max-w-xs font-display" style={{ color: 'var(--paper-dim)' }}>{book.title}</span>
         <div className="flex items-center gap-3">
           <button
-            className="text-zinc-400 hover:text-white text-sm"
+            className="text-sm transition-colors"
+            style={{ color: 'var(--paper-faint)' }}
             onClick={() => setShowSearch(true)}
             title="Search (⌘F)"
           >
@@ -115,11 +125,13 @@ export default function Reader({ book, onBack }) {
               onChange={(e) => setPageInput(e.target.value)}
               onBlur={commitPageInput}
               onKeyDown={(e) => { if (e.key === 'Enter') commitPageInput(); if (e.key === 'Escape') setEditingPage(false) }}
-              className="w-20 bg-zinc-800 text-white text-sm text-center rounded px-2 py-0.5 outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-20 text-sm text-center rounded-sm px-2 py-0.5 outline-none focus:ring-1"
+              style={{ background: 'var(--ink-soft)', color: 'var(--paper)', borderColor: 'var(--vermillion)' }}
             />
           ) : (
             <button
-              className="text-zinc-500 text-sm hover:text-zinc-300"
+              className="text-sm transition-colors"
+              style={{ color: 'var(--paper-faint)' }}
               onClick={handlePageClick}
               title="Click to jump to page"
             >
@@ -144,12 +156,18 @@ export default function Reader({ book, onBack }) {
 
         {/* PDF select overlay */}
         {needsPdf && (
-          <div className="absolute inset-0 bg-zinc-950/95 flex flex-col items-center justify-center gap-4 z-20">
-            <p className="text-zinc-300 text-sm font-medium">{book.title}</p>
-            <p className="text-zinc-500 text-xs text-center px-8">
+          <div
+            className="absolute inset-0 flex flex-col items-center justify-center gap-4 z-20"
+            style={{ background: 'rgba(21,18,15,0.97)' }}
+          >
+            <p className="text-sm font-display" style={{ color: 'var(--paper-dim)' }}>{book.title}</p>
+            <p className="text-xs text-center px-8" style={{ color: 'var(--paper-faint)' }}>
               Select the PDF file from your Files app to start reading.
             </p>
-            <label className="bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-3 rounded-lg text-sm font-medium cursor-pointer">
+            <label
+              className="px-6 py-3 rounded-sm border-2 text-sm font-display cursor-pointer transition-all hover:-translate-y-0.5"
+              style={{ borderColor: 'var(--vermillion)', color: 'var(--vermillion)', letterSpacing: '0.1em' }}
+            >
               Select PDF
               <input
                 ref={pdfInputRef}
@@ -164,16 +182,21 @@ export default function Reader({ book, onBack }) {
       </div>
 
       {/* Bottom nav */}
-      <div className="flex justify-between items-center px-8 py-2 bg-zinc-900/80">
+      <div
+        className="flex justify-between items-center px-8 py-2 border-t"
+        style={{ background: 'rgba(21,18,15,0.92)', borderColor: 'var(--ink-line)' }}
+      >
         <button
-          className="text-zinc-300 hover:text-white px-4 py-1 rounded disabled:opacity-30"
+          className="px-4 py-1 rounded-sm disabled:opacity-30 transition-colors"
+          style={{ color: 'var(--paper-dim)' }}
           onClick={goForward}
           disabled={pageIndex + step > totalPages - 1}
         >
           ←
         </button>
         <button
-          className="text-zinc-300 hover:text-white px-4 py-1 rounded disabled:opacity-30"
+          className="px-4 py-1 rounded-sm disabled:opacity-30 transition-colors"
+          style={{ color: 'var(--paper-dim)' }}
           onClick={goBack}
           disabled={pageIndex === 0}
         >

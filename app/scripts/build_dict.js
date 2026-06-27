@@ -39,8 +39,11 @@ for (const entry of words) {
   const meanings = entry.sense
     ?.flatMap((s) => s.gloss?.map((g) => g.text) ?? [])
     .slice(0, 3) ?? []
+  const common =
+    (entry.kanji ?? []).some((k) => k.common) ||
+    (entry.kana ?? []).some((k) => k.common)
 
-  const record = { reading, pos, meanings }
+  const record = common ? { reading, pos, meanings, common: true } : { reading, pos, meanings }
 
   // Index under all kanji headwords
   for (const k of entry.kanji ?? []) {

@@ -40,9 +40,10 @@ export default function SearchPanel({ bookId, onJumpTo, onClose }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/80 flex flex-col" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex flex-col" style={{ background: 'rgba(21,18,15,0.92)' }} onClick={onClose}>
       <div
-        className="bg-zinc-900 border-b border-zinc-700 p-4 flex gap-3 items-center"
+        className="border-b p-4 flex gap-3 items-center"
+        style={{ background: 'var(--ink-soft)', borderColor: 'var(--ink-line)' }}
         onClick={(e) => e.stopPropagation()}
       >
         <input
@@ -51,29 +52,31 @@ export default function SearchPanel({ bookId, onJumpTo, onClose }) {
           value={query}
           onChange={(e) => handleSearch(e.target.value)}
           placeholder="Search in book..."
-          className="flex-1 bg-zinc-800 text-white rounded-lg px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500"
+          className="flex-1 rounded-sm px-4 py-2 text-sm outline-none focus:ring-1 placeholder:opacity-60"
+          style={{ background: 'var(--ink)', color: 'var(--paper)', borderColor: 'var(--vermillion)' }}
         />
-        <button className="text-zinc-400 hover:text-white text-xl" onClick={onClose}>×</button>
+        <button className="text-xl transition-colors" style={{ color: 'var(--paper-faint)' }} onClick={onClose}>×</button>
       </div>
 
       <div
         className="flex-1 overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
-        {searching && <p className="text-zinc-500 text-sm p-4">Searching...</p>}
+        {searching && <p className="text-sm p-4" style={{ color: 'var(--paper-faint)' }}>Searching...</p>}
         {!searching && query && results.length === 0 && (
-          <p className="text-zinc-500 text-sm p-4">No results found.</p>
+          <p className="text-sm p-4" style={{ color: 'var(--paper-faint)' }}>No results found.</p>
         )}
         {results.map((r, i) => (
           <button
             key={i}
-            className="w-full text-left px-4 py-3 border-b border-zinc-800 hover:bg-zinc-800 transition-colors"
+            className="w-full text-left px-4 py-3 border-b transition-colors hover:bg-white/5"
+            style={{ borderColor: 'var(--ink-line)' }}
             onClick={() => { onJumpTo(r.pageIndex); onClose() }}
           >
-            <span className="text-xs text-indigo-400 font-medium block mb-1">Page {r.pageIndex + 1}</span>
-            <span className="text-sm text-zinc-300 leading-relaxed">
+            <span className="text-xs font-display block mb-1" style={{ color: 'var(--vermillion)' }}>Page {r.pageIndex + 1}</span>
+            <span className="text-sm leading-relaxed" style={{ color: 'var(--paper-dim)' }}>
               {r.snippet.slice(0, r.matchStart)}
-              <mark className="bg-indigo-500 text-white rounded px-0.5">
+              <mark className="rounded px-0.5" style={{ background: 'var(--vermillion)', color: 'var(--paper)' }}>
                 {r.snippet.slice(r.matchStart, r.matchStart + query.length)}
               </mark>
               {r.snippet.slice(r.matchStart + query.length)}
