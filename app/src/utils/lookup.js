@@ -140,19 +140,21 @@ function matchSpan(dict, span, preferredPos, preferredSpelling, seenRecords) {
  * @param searchText         text from the tap position to end of paragraph
  * @param preferredPos       kuromoji pos1 of the tapped token (e.g. 名詞/動詞), optional
  * @param preferredSpelling  kuromoji basic_form of the tapped token, optional
- * @returns [{ term, entries }] for the longest matching span, best-first
+ * @returns [{ term, entries, span }] for the longest matching span, best-first.
+ *          `span` is the actual surface text that was matched (e.g. 答えた),
+ *          which may extend past the tapped OCR fragment.
  */
 export function buildLookupResults(dict, searchText, preferredPos = null, preferredSpelling = null) {
   for (const prefix of japanesePrefixes(searchText)) {
     const groups = matchSpan(dict, prefix, preferredPos, preferredSpelling, new Set())
-    if (groups.length) return groups
+    if (groups.length) return groups.map((g) => ({ ...g, span: prefix }))
   }
 
   // Fallback: the tokenizer's dictionary form, in case deinflection missed an
   // irregular that kuromoji resolved directly.
   if (preferredSpelling && preferredSpelling !== searchText) {
     const groups = matchSpan(dict, preferredSpelling, preferredPos, preferredSpelling, new Set())
-    if (groups.length) return groups
+    if (groups.length) return groups.map((g) => ({ ...g, span: preferredSpelling }))
   }
 
   return []

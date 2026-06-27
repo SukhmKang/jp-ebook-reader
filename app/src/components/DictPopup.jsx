@@ -78,7 +78,10 @@ export default function DictPopup({ tap, onClose }) {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex justify-between items-center px-4 pt-4 pb-2">
-          <span className="text-lg font-display" style={{ color: 'var(--paper)' }}>{tap.text}</span>
+          {/* Show the span the lookup actually matched (may extend past the
+              tapped OCR fragment, e.g. 答え -> 答えた), falling back to the
+              raw tap text while loading / when nothing matched. */}
+          <span className="text-lg font-display" style={{ color: 'var(--paper)' }}>{results?.[0]?.span ?? tap.text}</span>
           <button className="text-xl leading-none transition-colors" style={{ color: 'var(--paper-faint)' }} onClick={onClose}>×</button>
         </div>
 
