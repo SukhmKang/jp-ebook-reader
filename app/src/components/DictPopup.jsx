@@ -3,7 +3,7 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { useKuromoji } from '../hooks/useKuromoji'
 import { useDict } from '../hooks/useDict'
-import { explainInJapanese } from '../utils/claude'
+import { explainInJapanese } from '../utils/openai'
 
 export default function DictPopup({ tap, onClose }) {
   const { tokenizer, ready: kReady } = useKuromoji()

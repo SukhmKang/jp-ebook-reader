@@ -1,0 +1,50 @@
+import assert from 'node:assert/strict'
+import { after, before, test } from 'node:test'
+
+process.env.NODE_ENV = 'test'
+const { createServer } = await import('../src/server.js')
+
+let server
+let baseUrl
+
+before(async () => {
+  server = createServer()
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve))
+  baseUrl = `http://127.0.0.1:${server.address().port}`
+})
+
+after(() => new Promise((resolve) => server.close(resolve)))
+
+test('health endpoint responds', async () => {
+  const response = await fetch(`${baseUrl}/health`)
+  assert.equal(response.status, 200)
+  assert.deepEqual(await response.json(), { status: 'ok' })
+})
+
+test('preflight permits the local frontend', async () => {
+  const response = await fetch(`${baseUrl}/api/explain`, {
+    method: 'OPTIONS',
+    headers: { Origin: 'http://localhost:5173' },
+  })
+  assert.equal(response.status, 204)
+  assert.equal(response.headers.get('access-control-allow-origin'), 'http://localhost:5173')
+})
+
+test('explain rejects unknown origins', async () => {
+  const response = await fetch(`${baseUrl}/api/explain`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Origin: 'https://example.com' },
+    body: JSON.stringify({ paraText: 'テスト' }),
+  })
+  assert.equal(response.status, 403)
+})
+
+test('explain fails safely when the API key is absent', async () => {
+  const response = await fetch(`${baseUrl}/api/explain`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Origin: 'http://localhost:5173' },
+    body: JSON.stringify({ paraText: 'テスト' }),
+  })
+  assert.equal(response.status, 503)
+  assert.deepEqual(await response.json(), { error: 'AI service is not configured' })
+})
