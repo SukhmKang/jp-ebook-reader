@@ -35,10 +35,10 @@ async function streamExplanation(body, onChunk) {
   }
 }
 
-export function explainInJapanese(paraText, pageContext, onChunk, userPrompt = '') {
-  return streamExplanation({ paraText, pageContext, userPrompt }, onChunk)
+export function explainInJapanese(paraText, pageContext, onChunk, userPrompt = '', storyContext = '') {
+  return streamExplanation({ paraText, pageContext, userPrompt, storyContext }, onChunk)
 }
 
-export function explainImageInJapanese(imageData, onChunk, userPrompt = '') {
-  return streamExplanation({ imageData, userPrompt }, onChunk)
+export function explainImageInJapanese(imageData, onChunk, userPrompt = '', storyContext = '') {
+  return streamExplanation({ imageData, userPrompt, storyContext }, onChunk)
 }

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useBookReader } from '../hooks/useBook'
 import { useOrientation } from '../hooks/useOrientation'
 import PageSpread from './PageSpread'
@@ -11,6 +11,7 @@ import {
   previousPageIndex,
   spreadState,
 } from '../utils/spreadPagination'
+import { buildStoryContext } from '../utils/storyContext'
 
 function getProgress(bookId) {
   try { return parseInt(localStorage.getItem(`progress:${bookId}`) || '0', 10) } catch { return 0 }
@@ -38,7 +39,11 @@ export default function Reader({ book, onBack }) {
     landscape,
   )
 
-  const { rightImage, leftImage, rightOcr, leftOcr, needsPdf } = useBookReader(book, pageIndex, pdfFile)
+  const { rightImage, leftImage, rightOcr, leftOcr, ocrPages, needsPdf } = useBookReader(book, pageIndex, pdfFile)
+  const storyContext = useMemo(
+    () => buildStoryContext(ocrPages, lastVisiblePage),
+    [ocrPages, lastVisiblePage],
+  )
 
   const pageDisplay = `${pageIndex + 1}${lastVisiblePage > pageIndex ? `–${lastVisiblePage + 1}` : ''} / ${totalPages}`
 
@@ -244,12 +249,13 @@ export default function Reader({ book, onBack }) {
       </div>
 
       {popup && (
-        <DictPopup tap={popup} onClose={() => setPopup(null)} />
+        <DictPopup tap={popup} storyContext={storyContext} onClose={() => setPopup(null)} />
       )}
 
       {imageExplanation && (
         <ImageExplainPopup
           imageData={imageExplanation}
+          storyContext={storyContext}
           onClose={() => setImageExplanation(null)}
         />
       )}

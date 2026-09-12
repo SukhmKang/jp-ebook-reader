@@ -5,7 +5,7 @@ import { useKuromoji } from '../hooks/useKuromoji'
 import { useDict } from '../hooks/useDict'
 import { explainInJapanese } from '../utils/openai'
 
-export default function DictPopup({ tap, onClose }) {
+export default function DictPopup({ tap, storyContext, onClose }) {
   const { tokenizer, ready: kReady } = useKuromoji()
   const { lookup, ready: dReady } = useDict()
   const [results, setResults] = useState(null)
@@ -35,6 +35,7 @@ export default function DictPopup({ tap, onClose }) {
         tap.pageText ?? null,
         (chunk) => setExplanation((s) => s + chunk),
         userPrompt,
+        storyContext,
       )
     } catch (err) {
       setExplainError(err.message)

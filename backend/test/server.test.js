@@ -68,12 +68,17 @@ test('image explanation sends a validated image to Terra', async () => {
     const response = await nativeFetch(`${baseUrl}/api/explain`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Origin: 'http://localhost:5173' },
-      body: JSON.stringify({ imageData: 'data:image/jpeg;base64,YWJj' }),
+      body: JSON.stringify({
+        imageData: 'data:image/jpeg;base64,YWJj',
+        storyContext: '[Page 4]\nアドルフは駅へ向かった。',
+      }),
     })
     assert.equal(response.status, 200)
     assert.equal(upstreamBody.model, 'gpt-5.6-terra')
     assert.equal(upstreamBody.input[0].content[1].type, 'input_image')
     assert.equal(upstreamBody.input[0].content[1].image_url, 'data:image/jpeg;base64,YWJj')
+    assert.match(upstreamBody.input[0].content[0].text, /アドルフは駅へ向かった/)
+    assert.match(upstreamBody.input[0].content[0].text, /OCRの誤り/)
   } finally {
     globalThis.fetch = nativeFetch
     delete process.env.OPENAI_API_KEY

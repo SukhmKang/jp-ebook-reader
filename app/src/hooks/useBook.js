@@ -83,6 +83,7 @@ export function useBookReader(book, pageIndex, pdfFile) {
     leftImage,
     rightOcr: ocrPages?.[pageIndex] ?? null,
     leftOcr: ocrPages?.[pageIndex + 1] ?? null,
+    ocrPages,
     needsPdf: book?.storedAs === 'pdf' && !pdfReady,
   }
 }

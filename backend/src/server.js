@@ -68,14 +68,20 @@ function isRateLimited(req) {
   return false
 }
 
-function buildUserMessage({ paraText, pageContext, userPrompt }) {
+function storyBlock(storyContext) {
+  return storyContext
+    ? `\n\nここまでの物語（OCRの誤りを含む可能性があるため、文脈の参考としてのみ使用）：\n${storyContext}`
+    : ''
+}
+
+function buildUserMessage({ paraText, pageContext, userPrompt, storyContext }) {
   const contextBlock = pageContext
     ? `\n\nページの他のテキスト（文脈として）：\n${pageContext}`
     : ''
   const focusBlock = userPrompt?.trim()
     ? `\n\nユーザーからの質問：${userPrompt.trim()}\nこの質問に答えながら説明してください。`
     : ''
-  return `以下の文をわかりやすく説明してください：\n\n「${paraText}」${contextBlock}${focusBlock}`
+  return `以下の文をわかりやすく説明してください：\n\n「${paraText}」${contextBlock}${storyBlock(storyContext)}${focusBlock}`
 }
 
 function validImageData(imageData) {
@@ -84,8 +90,8 @@ function validImageData(imageData) {
     /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(imageData)
 }
 
-function buildInput({ paraText, pageContext, userPrompt, imageData }) {
-  if (!imageData) return buildUserMessage({ paraText, pageContext, userPrompt })
+function buildInput({ paraText, pageContext, userPrompt, imageData, storyContext }) {
+  if (!imageData) return buildUserMessage({ paraText, pageContext, userPrompt, storyContext })
   const question = userPrompt?.trim()
     ? `\n\nユーザーからの質問：${userPrompt.trim()}`
     : ''
@@ -94,7 +100,7 @@ function buildInput({ paraText, pageContext, userPrompt, imageData }) {
     content: [
       {
         type: 'input_text',
-        text: `選択された漫画の画像を読み取り、日本語学習者にわかりやすく説明してください。台詞やナレーションの意味とニュアンスを中心にし、読めない箇所は推測で断定しないでください。${question}`,
+        text: `選択された漫画の画像を読み取り、日本語学習者にわかりやすく説明してください。台詞やナレーションの意味とニュアンスを中心にし、ここまでの展開を踏まえて人物や場面を説明してください。読めない箇所やOCRと矛盾する箇所は推測で断定しないでください。${storyBlock(storyContext)}${question}`,
       },
       { type: 'input_image', image_url: imageData, detail: 'high' },
     ],
@@ -156,6 +162,7 @@ export function createServer() {
     const paraText = typeof body.paraText === 'string' ? body.paraText.trim() : ''
     const pageContext = typeof body.pageContext === 'string' ? body.pageContext.slice(0, 20000) : ''
     const userPrompt = typeof body.userPrompt === 'string' ? body.userPrompt.slice(0, 2000) : ''
+    const storyContext = typeof body.storyContext === 'string' ? body.storyContext.slice(0, 16000) : ''
     const imageData = typeof body.imageData === 'string' ? body.imageData : ''
     if ((!paraText && !imageData) || paraText.length > 8000 || (imageData && !validImageData(imageData))) {
       writeJson(res, 400, { error: 'Invalid explanation input' }, origin)
@@ -182,7 +189,7 @@ export function createServer() {
 ・3〜5文の自然な文章で説明する（箇条書きや見出しは使わない）
 ・教訓や道徳的なまとめは、原文に明示されていない限り加えない
 ・返答はすべて日本語で`,
-          input: buildInput({ paraText, pageContext, userPrompt, imageData }),
+          input: buildInput({ paraText, pageContext, userPrompt, imageData, storyContext }),
         }),
       })
     } catch {

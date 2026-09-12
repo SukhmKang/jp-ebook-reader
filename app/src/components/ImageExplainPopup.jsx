@@ -3,7 +3,7 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { explainImageInJapanese } from '../utils/openai'
 
-export default function ImageExplainPopup({ imageData, onClose }) {
+export default function ImageExplainPopup({ imageData, storyContext, onClose }) {
   const [explanation, setExplanation] = useState('')
   const [error, setError] = useState(null)
   const [explaining, setExplaining] = useState(true)
@@ -23,6 +23,7 @@ export default function ImageExplainPopup({ imageData, onClose }) {
           if (requestId === requestIdRef.current) setExplanation((value) => value + chunk)
         },
         prompt,
+        storyContext,
       )
     } catch (requestError) {
       if (requestId === requestIdRef.current) setError(requestError.message)
