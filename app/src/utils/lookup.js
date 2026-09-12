@@ -3,7 +3,7 @@
 // then ranks the matched entries by POS affinity, preferred spelling and
 // commonness (the same intelligence the `jp` CLI uses).
 
-import { deinflect, entryMatchesConditions, dictionaryTermsForCandidate } from './deinflect'
+import { deinflect, entryMatchesConditions, dictionaryTermsForCandidate } from './deinflect.js'
 
 function isJapaneseChar(char) {
   const cp = char.codePointAt(0)
@@ -21,6 +21,18 @@ function containsJapanese(text) {
   return false
 }
 
+function isKanaText(text) {
+  if (!text) return false
+  return Array.from(text).every((char) => {
+    const cp = char.codePointAt(0)
+    return (
+      (cp >= 0x3040 && cp <= 0x309f) ||
+      (cp >= 0x30a0 && cp <= 0x30ff) ||
+      (cp >= 0xff66 && cp <= 0xff9f)
+    )
+  })
+}
+
 function isLookupBoundary(char) {
   if (/\s/.test(char)) return true
   return '。、！？!?「」『』（）()［］[]【】・,;:'.includes(char)
@@ -32,7 +44,9 @@ function isLookupBoundary(char) {
  * last character (those would span across a word/sentence boundary).
  */
 function japanesePrefixes(text) {
-  const chars = Array.from(text)
+  // Match the CLI's 32-character ceiling. Besides parity, this prevents a tap
+  // near the start of a long OCR paragraph from generating huge transform sets.
+  const chars = Array.from(text).slice(0, 32)
   const prefixes = []
   for (let length = chars.length; length > 0; length--) {
     const head = chars.slice(0, length)
@@ -79,11 +93,32 @@ function isUsefulLookupEntry(record) {
 }
 
 // Lexicographic, descending. Higher = better match.
+function primarySpelling(record, matchedTerm) {
+  return record.headword ?? matchedTerm
+}
+
+function readings(record) {
+  return record.readings ?? (record.reading ? [record.reading] : [])
+}
+
+// The same exact-spelling/readings/commonness/rarity ordering used by the CLI.
+function dictionaryRank(term, record) {
+  const headword = primarySpelling(record, term)
+  return [
+    headword === term ? 1 : 0,
+    readings(record).includes(term) ? 1 : 0,
+    isKanaText(term) && (record.pos ?? []).some((pos) => pos.startsWith('vs')) ? 1 : 0,
+    record.common ? 1 : 0,
+    record.rare ? 0 : 1,
+    -Array.from(headword).length,
+  ]
+}
+
 function rankTuple(term, record, preferredPos, preferredSpelling) {
   return [
-    term === preferredSpelling ? 1 : 0,
+    primarySpelling(record, term) === preferredSpelling ? 1 : 0,
     posAffinity(preferredPos, record.pos),
-    record.common ? 1 : 0,
+    ...dictionaryRank(term, record),
   ]
 }
 
@@ -133,6 +168,16 @@ function matchSpan(dict, span, preferredPos, preferredSpelling, seenRecords) {
   return result.map(({ term, entries }) => ({ term, entries }))
 }
 
+/** Exact particle lookup, mirroring lookup_particle in the CLI. */
+function matchParticle(dict, surface) {
+  return (dict[surface] ?? [])
+    .filter((record) => (record.pos ?? []).includes('prt'))
+    .map((record) => ({ record, rank: dictionaryRank(surface, record) }))
+    .sort((a, b) => compareRank(a.rank, b.rank))
+    .slice(0, 5)
+    .map(({ record }) => record)
+}
+
 /**
  * Find the dictionary results for the word at the tap position.
  *
@@ -144,7 +189,20 @@ function matchSpan(dict, span, preferredPos, preferredSpelling, seenRecords) {
  *          `span` is the actual surface text that was matched (e.g. 答えた),
  *          which may extend past the tapped OCR fragment.
  */
-export function buildLookupResults(dict, searchText, preferredPos = null, preferredSpelling = null) {
+export function buildLookupResults(
+  dict,
+  searchText,
+  preferredPos = null,
+  preferredSpelling = null,
+  tappedText = null,
+) {
+  // The CLI treats particles specially: exact surface match and only particle
+  // entries. Without this, short kana such as に rank unrelated nouns first.
+  if (preferredPos === '助詞' && tappedText) {
+    const entries = matchParticle(dict, tappedText)
+    if (entries.length) return [{ term: tappedText, entries, span: tappedText }]
+  }
+
   for (const prefix of japanesePrefixes(searchText)) {
     const groups = matchSpan(dict, prefix, preferredPos, preferredSpelling, new Set())
     if (groups.length) return groups.map((g) => ({ ...g, span: prefix }))

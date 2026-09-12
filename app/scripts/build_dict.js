@@ -34,16 +34,28 @@ function addEntry(key, record) {
 }
 
 for (const entry of words) {
-  const reading = entry.kana?.[0]?.text ?? ''
-  const pos = entry.sense?.[0]?.partOfSpeech ?? []
+  const headword = entry.kanji?.[0]?.text ?? entry.kana?.[0]?.text ?? ''
+  const readings = [...new Set((entry.kana ?? []).map((item) => item.text).filter(Boolean))]
+  const pos = [...new Set((entry.sense ?? []).flatMap((sense) => sense.partOfSpeech ?? []))]
   const meanings = entry.sense
-    ?.flatMap((s) => s.gloss?.map((g) => g.text) ?? [])
-    .slice(0, 3) ?? []
+    ?.flatMap((sense) => sense.gloss
+      ?.filter((gloss) => !gloss.lang || gloss.lang === 'eng')
+      .map((gloss) => gloss.text) ?? [])
+    .filter(Boolean)
+    .slice(0, 6) ?? []
   const common =
     (entry.kanji ?? []).some((k) => k.common) ||
     (entry.kana ?? []).some((k) => k.common)
+  const rare = (entry.sense ?? []).some((sense) =>
+    (sense.misc ?? []).some((marker) => ['rare', 'arch', 'obs'].includes(marker))
+  )
 
-  const record = common ? { reading, pos, meanings, common: true } : { reading, pos, meanings }
+  // Preserve the fields the CLI uses to rank homographs. Short property names
+  // would save a little space, but named fields make the generated format easy
+  // to inspect and backwards-compatible with the reader's existing records.
+  const record = { id: String(entry.id), headword, readings, reading: readings[0] ?? '', pos, meanings }
+  if (common) record.common = true
+  if (rare) record.rare = true
 
   // Index under all kanji headwords
   for (const k of entry.kanji ?? []) {

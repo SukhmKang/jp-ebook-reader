@@ -7,7 +7,8 @@ import { buildLookupResults } from '../utils/lookup'
 // and busts the HTTP/CDN cache so clients pull the new dict.
 //   1 — original { reading, pos, meanings }
 //   2 — adds `common` flag (build_dict.js)
-const DICT_VERSION = 2
+//   3 — adds primary spelling, readings, all POS tags, and rarity for CLI-parity ranking
+const DICT_VERSION = 3
 
 let dictSingleton = null
 let dictPromise = null
@@ -15,20 +16,31 @@ let dictPromise = null
 function getDict() {
   if (dictSingleton) return Promise.resolve(dictSingleton)
   if (dictPromise) return dictPromise
-  dictPromise = getDbDict().then((cached) => {
+  dictPromise = getDbDict().then(async (cached) => {
     if (cached && cached.version === DICT_VERSION) {
       dictSingleton = cached.data
       return cached.data
     }
-    // Missing or stale cache — fetch from R2 (cache-busted) and persist
-    const r2Base = import.meta.env.VITE_R2_PUBLIC_URL?.replace(/\/$/, '')
-    return fetch(`${r2Base}/jmdict.json?v=${DICT_VERSION}`)
-      .then((r) => r.json())
-      .then((d) => {
-        dictSingleton = d
-        saveDict(d, DICT_VERSION) // persist for offline use, don't await
-        return d
-      })
+    // Missing or stale cache — fetch from R2 (cache-busted) and persist. If an
+    // existing user launches offline during a dictionary upgrade, retain the
+    // older cached dictionary rather than disabling lookup entirely.
+    try {
+      const r2Base = import.meta.env.VITE_R2_PUBLIC_URL?.replace(/\/$/, '')
+      if (!r2Base) throw new Error('VITE_R2_PUBLIC_URL is not set')
+      const response = await fetch(`${r2Base}/jmdict.json?v=${DICT_VERSION}`)
+      if (!response.ok) throw new Error(`Dictionary download failed (${response.status})`)
+      const data = await response.json()
+      dictSingleton = data
+      await saveDict(data, DICT_VERSION)
+      return data
+    } catch (error) {
+      if (cached?.data) {
+        console.warn('[dictionary] using stale offline cache:', error)
+        dictSingleton = cached.data
+        return cached.data
+      }
+      throw error
+    }
   })
   return dictPromise
 }
@@ -67,7 +79,7 @@ export function useDict() {
 
     // Condition-aware deinflection + longest-span match + POS-affinity ranking,
     // ported from the `jp` CLI (see utils/lookup.js, utils/deinflect.js).
-    return buildLookupResults(ref.current, searchText, preferredPos, preferredSpelling)
+    return buildLookupResults(ref.current, searchText, preferredPos, preferredSpelling, text)
   }
 
   return { ready, lookup }

@@ -94,10 +94,13 @@ export default function DictPopup({ tap, onClose }) {
 
           {!loading && results.map(({ term, entries }) =>
             entries.map((entry, i) => (
-              <div key={`${term}-${i}`} className="mb-3 border-t pt-2 first:border-0 first:pt-0" style={{ borderColor: 'var(--ink-line)' }}>
+              <div key={entry.id ?? `${term}-${i}`} className="mb-3 border-t pt-2 first:border-0 first:pt-0" style={{ borderColor: 'var(--ink-line)' }}>
                 <div className="flex items-baseline gap-2 mb-1">
-                  <span className="text-base font-display" style={{ color: 'var(--paper)' }}>{term}</span>
-                  <span className="text-sm" style={{ color: 'var(--paper-faint)' }}>{entry.reading}</span>
+                  <span className="text-base font-display" style={{ color: 'var(--paper)' }}>{entry.headword ?? term}</span>
+                  <span className="text-sm" style={{ color: 'var(--paper-faint)' }}>
+                    {(entry.readings ?? [entry.reading]).filter(Boolean).slice(0, 4).join('、')}
+                  </span>
+                  {entry.common && <span className="text-[10px]" style={{ color: 'var(--vermillion)' }}>common</span>}
                 </div>
                 <div className="text-xs mb-1" style={{ color: 'var(--paper-faint)' }}>{entry.pos?.join(', ')}</div>
                 <ol className="text-sm list-decimal list-inside space-y-0.5" style={{ color: 'var(--paper-dim)' }}>
