@@ -79,6 +79,9 @@ test('image explanation sends a validated image to Terra', async () => {
     assert.equal(upstreamBody.input[0].content[1].image_url, 'data:image/jpeg;base64,YWJj')
     assert.match(upstreamBody.input[0].content[0].text, /アドルフは駅へ向かった/)
     assert.match(upstreamBody.input[0].content[0].text, /OCRの誤り/)
+    assert.match(upstreamBody.input[0].content[0].text, /単語（よみ）/)
+    assert.match(upstreamBody.input[0].content[0].text, /選択範囲にはない語は挙げない/)
+    assert.match(upstreamBody.instructions, /英語は使わない/)
   } finally {
     globalThis.fetch = nativeFetch
     delete process.env.OPENAI_API_KEY
