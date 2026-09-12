@@ -4,6 +4,7 @@ import { useOrientation } from '../hooks/useOrientation'
 import PageSpread from './PageSpread'
 import DictPopup from './DictPopup'
 import SearchPanel from './SearchPanel'
+import ImageExplainPopup from './ImageExplainPopup'
 import {
   nextPageIndex,
   normalizeSpreadStart,
@@ -21,6 +22,8 @@ function saveProgress(bookId, page) {
 export default function Reader({ book, onBack }) {
   const [pageIndex, setPageIndex] = useState(() => getProgress(book.id))
   const [popup, setPopup] = useState(null)
+  const [imageExplanation, setImageExplanation] = useState(null)
+  const [imageSelectMode, setImageSelectMode] = useState(false)
   const [showSearch, setShowSearch] = useState(false)
   const [editingPage, setEditingPage] = useState(false)
   const [pageInput, setPageInput] = useState('')
@@ -44,17 +47,20 @@ export default function Reader({ book, onBack }) {
   const goBack = useCallback(() => {
     setPageIndex((p) => previousPageIndex(p, landscape))
     setPopup(null)
+    setImageExplanation(null)
   }, [landscape])
 
   const goForward = useCallback(() => {
     setPageIndex((p) => nextPageIndex(p, totalPages, landscape))
     setPopup(null)
+    setImageExplanation(null)
   }, [landscape, totalPages])
 
   const jumpTo = useCallback((index) => {
     const clamped = Math.max(0, Math.min(totalPages - 1, index))
     setPageIndex(landscape ? normalizeSpreadStart(clamped) : clamped)
     setPopup(null)
+    setImageExplanation(null)
   }, [landscape, totalPages])
 
   // Keyboard navigation
@@ -65,7 +71,11 @@ export default function Reader({ book, onBack }) {
       if (tag === 'INPUT' || tag === 'TEXTAREA') return
       if (e.key === 'ArrowLeft') goForward()   // RTL: left = forward
       if (e.key === 'ArrowRight') goBack()      // RTL: right = back
-      if (e.key === 'Escape') setPopup(null)
+      if (e.key === 'Escape') {
+        setPopup(null)
+        setImageExplanation(null)
+        setImageSelectMode(false)
+      }
       if (e.key === 'f' && (e.metaKey || e.ctrlKey)) {
         e.preventDefault()
         setShowSearch(true)
@@ -126,6 +136,18 @@ export default function Reader({ book, onBack }) {
           >
             ⌕
           </button>
+          <button
+            className="rounded px-2 py-1 text-xs transition-colors"
+            style={{
+              color: imageSelectMode ? 'var(--paper)' : 'var(--paper-faint)',
+              background: imageSelectMode ? 'var(--vermillion-soft)' : 'transparent',
+            }}
+            onClick={() => setImageSelectMode((active) => !active)}
+            title="Explain image region (Shift-drag)"
+            aria-pressed={imageSelectMode}
+          >
+            ▣ <span className="hidden sm:inline">Shift-drag</span>
+          </button>
           {editingPage ? (
             <input
               ref={pageInputRef}
@@ -160,6 +182,12 @@ export default function Reader({ book, onBack }) {
           rightOcr={rightOcr}
           leftOcr={leftOcr}
           onWordTap={handleWordTap}
+          onImageSelect={(imageData) => {
+            setPopup(null)
+            setImageExplanation(imageData)
+            setImageSelectMode(false)
+          }}
+          selectionMode={imageSelectMode}
           onSwipeLeft={goBack}
           onSwipeRight={goForward}
           singlePage={singlePage}
@@ -217,6 +245,13 @@ export default function Reader({ book, onBack }) {
 
       {popup && (
         <DictPopup tap={popup} onClose={() => setPopup(null)} />
+      )}
+
+      {imageExplanation && (
+        <ImageExplainPopup
+          imageData={imageExplanation}
+          onClose={() => setImageExplanation(null)}
+        />
       )}
 
       {showSearch && (

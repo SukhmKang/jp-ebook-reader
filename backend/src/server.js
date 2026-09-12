@@ -2,7 +2,8 @@ import http from 'node:http'
 import { Readable } from 'node:stream'
 
 const PORT = Number(process.env.PORT || 8787)
-const MAX_BODY_BYTES = 64 * 1024
+const MAX_BODY_BYTES = 3 * 1024 * 1024
+const MAX_IMAGE_DATA_LENGTH = 2.5 * 1024 * 1024
 const RATE_LIMIT = Number(process.env.RATE_LIMIT_PER_HOUR || 30)
 const MODEL = process.env.OPENAI_MODEL || 'gpt-5.6-terra'
 const requestsByIp = new Map()
@@ -77,6 +78,29 @@ function buildUserMessage({ paraText, pageContext, userPrompt }) {
   return `以下の文をわかりやすく説明してください：\n\n「${paraText}」${contextBlock}${focusBlock}`
 }
 
+function validImageData(imageData) {
+  return typeof imageData === 'string' &&
+    imageData.length <= MAX_IMAGE_DATA_LENGTH &&
+    /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(imageData)
+}
+
+function buildInput({ paraText, pageContext, userPrompt, imageData }) {
+  if (!imageData) return buildUserMessage({ paraText, pageContext, userPrompt })
+  const question = userPrompt?.trim()
+    ? `\n\nユーザーからの質問：${userPrompt.trim()}`
+    : ''
+  return [{
+    role: 'user',
+    content: [
+      {
+        type: 'input_text',
+        text: `選択された漫画の画像を読み取り、日本語学習者にわかりやすく説明してください。台詞やナレーションの意味とニュアンスを中心にし、読めない箇所は推測で断定しないでください。${question}`,
+      },
+      { type: 'input_image', image_url: imageData, detail: 'high' },
+    ],
+  }]
+}
+
 export function createServer() {
   return http.createServer(async (req, res) => {
     const origin = req.headers.origin
@@ -132,8 +156,9 @@ export function createServer() {
     const paraText = typeof body.paraText === 'string' ? body.paraText.trim() : ''
     const pageContext = typeof body.pageContext === 'string' ? body.pageContext.slice(0, 20000) : ''
     const userPrompt = typeof body.userPrompt === 'string' ? body.userPrompt.slice(0, 2000) : ''
-    if (!paraText || paraText.length > 8000) {
-      writeJson(res, 400, { error: 'Invalid text' }, origin)
+    const imageData = typeof body.imageData === 'string' ? body.imageData : ''
+    if ((!paraText && !imageData) || paraText.length > 8000 || (imageData && !validImageData(imageData))) {
+      writeJson(res, 400, { error: 'Invalid explanation input' }, origin)
       return
     }
 
@@ -157,7 +182,7 @@ export function createServer() {
 ・3〜5文の自然な文章で説明する（箇条書きや見出しは使わない）
 ・教訓や道徳的なまとめは、原文に明示されていない限り加えない
 ・返答はすべて日本語で`,
-          input: buildUserMessage({ paraText, pageContext, userPrompt }),
+          input: buildInput({ paraText, pageContext, userPrompt, imageData }),
         }),
       })
     } catch {

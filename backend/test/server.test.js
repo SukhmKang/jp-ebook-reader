@@ -48,3 +48,34 @@ test('explain fails safely when the API key is absent', async () => {
   assert.equal(response.status, 503)
   assert.deepEqual(await response.json(), { error: 'AI service is not configured' })
 })
+
+test('image explanation sends a validated image to Terra', async () => {
+  const nativeFetch = globalThis.fetch
+  let upstreamBody
+  process.env.OPENAI_API_KEY = 'test-key'
+  globalThis.fetch = async (url, options) => {
+    if (String(url) === 'https://api.openai.com/v1/responses') {
+      upstreamBody = JSON.parse(options.body)
+      return new Response('data: {"type":"response.output_text.delta","delta":"ok"}\n\n', {
+        status: 200,
+        headers: { 'Content-Type': 'text/event-stream' },
+      })
+    }
+    return nativeFetch(url, options)
+  }
+
+  try {
+    const response = await nativeFetch(`${baseUrl}/api/explain`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Origin: 'http://localhost:5173' },
+      body: JSON.stringify({ imageData: 'data:image/jpeg;base64,YWJj' }),
+    })
+    assert.equal(response.status, 200)
+    assert.equal(upstreamBody.model, 'gpt-5.6-terra')
+    assert.equal(upstreamBody.input[0].content[1].type, 'input_image')
+    assert.equal(upstreamBody.input[0].content[1].image_url, 'data:image/jpeg;base64,YWJj')
+  } finally {
+    globalThis.fetch = nativeFetch
+    delete process.env.OPENAI_API_KEY
+  }
+})
