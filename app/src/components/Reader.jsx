@@ -4,6 +4,12 @@ import { useOrientation } from '../hooks/useOrientation'
 import PageSpread from './PageSpread'
 import DictPopup from './DictPopup'
 import SearchPanel from './SearchPanel'
+import {
+  nextPageIndex,
+  normalizeSpreadStart,
+  previousPageIndex,
+  spreadState,
+} from '../utils/spreadPagination'
 
 function getProgress(bookId) {
   try { return parseInt(localStorage.getItem(`progress:${bookId}`) || '0', 10) } catch { return 0 }
@@ -22,28 +28,32 @@ export default function Reader({ book, onBack }) {
   const pageInputRef = useRef(null)
   const pdfInputRef = useRef(null)
   const landscape = useOrientation()
-  const step = landscape ? 2 : 1
   const totalPages = book.pageCount
+  const { singlePage, lastVisiblePage, canGoForward } = spreadState(
+    pageIndex,
+    totalPages,
+    landscape,
+  )
 
   const { rightImage, leftImage, rightOcr, leftOcr, needsPdf } = useBookReader(book, pageIndex, pdfFile)
 
-  const pageDisplay = `${pageIndex + 1}${landscape && pageIndex + 1 < totalPages ? `–${pageIndex + 2}` : ''} / ${totalPages}`
+  const pageDisplay = `${pageIndex + 1}${lastVisiblePage > pageIndex ? `–${lastVisiblePage + 1}` : ''} / ${totalPages}`
 
   useEffect(() => { saveProgress(book.id, pageIndex) }, [book.id, pageIndex])
 
   const goBack = useCallback(() => {
-    setPageIndex((p) => Math.max(0, p - step))
+    setPageIndex((p) => previousPageIndex(p, landscape))
     setPopup(null)
-  }, [step])
+  }, [landscape])
 
   const goForward = useCallback(() => {
-    setPageIndex((p) => Math.min(totalPages - 1, p + step))
+    setPageIndex((p) => nextPageIndex(p, totalPages, landscape))
     setPopup(null)
-  }, [step, totalPages])
+  }, [landscape, totalPages])
 
   const jumpTo = useCallback((index) => {
     const clamped = Math.max(0, Math.min(totalPages - 1, index))
-    setPageIndex(landscape ? clamped - (clamped % 2) : clamped)
+    setPageIndex(landscape ? normalizeSpreadStart(clamped) : clamped)
     setPopup(null)
   }, [landscape, totalPages])
 
@@ -65,9 +75,10 @@ export default function Reader({ book, onBack }) {
     return () => window.removeEventListener('keydown', handleKey)
   }, [goBack, goForward, showSearch, editingPage, needsPdf])
 
-  // Snap to even page on landscape switch
+  // The cover is a singleton; all subsequent landscape spreads start on an
+  // odd zero-based PDF index (pages 2-3, 4-5, ...).
   useEffect(() => {
-    if (landscape) setPageIndex((p) => p % 2 === 0 ? p : p - 1)
+    if (landscape) setPageIndex(normalizeSpreadStart)
   }, [landscape])
 
   function handlePageClick() {
@@ -151,7 +162,7 @@ export default function Reader({ book, onBack }) {
           onWordTap={handleWordTap}
           onSwipeLeft={goBack}
           onSwipeRight={goForward}
-          singlePage={!landscape}
+          singlePage={singlePage}
         />
 
         {/* PDF select overlay */}
@@ -190,7 +201,7 @@ export default function Reader({ book, onBack }) {
           className="px-4 py-1 rounded-sm disabled:opacity-30 transition-colors"
           style={{ color: 'var(--paper-dim)' }}
           onClick={goForward}
-          disabled={pageIndex + step > totalPages - 1}
+          disabled={!canGoForward}
         >
           ←
         </button>
