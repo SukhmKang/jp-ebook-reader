@@ -1,8 +1,8 @@
-const API_BASE_URL = import.meta.env.VITE_API_URL?.replace(/\/$/, '')
+const API_BASE_URL = (
+  import.meta.env.VITE_API_URL || 'https://jp-ebook-reader-api.onrender.com'
+).replace(/\/$/, '')
 
 export async function explainInJapanese(paraText, pageContext, onChunk, userPrompt = '') {
-  if (!API_BASE_URL) throw new Error('API backend is not configured')
-
   const response = await fetch(`${API_BASE_URL}/api/explain`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
