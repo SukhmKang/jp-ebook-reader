@@ -9,6 +9,7 @@ export default function ImageExplainPopup({ imageData, onClose }) {
   const [explaining, setExplaining] = useState(true)
   const [userPrompt, setUserPrompt] = useState('')
   const requestIdRef = useRef(0)
+  const overlayRef = useRef(null)
 
   async function explain(prompt = '') {
     const requestId = ++requestIdRef.current
@@ -35,8 +36,37 @@ export default function ImageExplainPopup({ imageData, onClose }) {
     return () => { requestIdRef.current += 1 }
   }, [imageData])
 
+  // Keep the sheet attached to the visible screen when iOS page zoom changes
+  // the visual viewport. CSS position: fixed alone remains tied to the layout
+  // viewport, which can leave the sheet partly offscreen while zoomed.
+  useEffect(() => {
+    const vv = window.visualViewport
+    if (!vv) return
+
+    function update() {
+      if (!overlayRef.current) return
+      overlayRef.current.style.top = `${vv.offsetTop}px`
+      overlayRef.current.style.left = `${vv.offsetLeft}px`
+      overlayRef.current.style.width = `${vv.width}px`
+      overlayRef.current.style.height = `${vv.height}px`
+    }
+
+    update()
+    vv.addEventListener('scroll', update)
+    vv.addEventListener('resize', update)
+    return () => {
+      vv.removeEventListener('scroll', update)
+      vv.removeEventListener('resize', update)
+    }
+  }, [])
+
   return (
-    <div className="fixed inset-0 z-50" onClick={onClose}>
+    <div
+      ref={overlayRef}
+      className="fixed z-50"
+      style={{ top: 0, left: 0, width: '100vw', height: '100vh' }}
+      onClick={onClose}
+    >
       <div
         className="absolute bottom-0 left-0 right-0 max-h-[70vh] overflow-y-auto rounded-t-2xl border-t-2 px-4 pb-4 shadow-2xl"
         style={{ background: 'var(--ink-soft)', borderColor: 'var(--vermillion)' }}
