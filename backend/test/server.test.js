@@ -81,6 +81,8 @@ test('image explanation sends a validated image to Terra', async () => {
     assert.match(upstreamBody.input[0].content[0].text, /OCRの誤り/)
     assert.match(upstreamBody.input[0].content[0].text, /単語（よみ）/)
     assert.match(upstreamBody.input[0].content[0].text, /選択範囲にはない語は挙げない/)
+    assert.match(upstreamBody.input[0].content[0].text, /画像そのものの描写はしない/)
+    assert.match(upstreamBody.input[0].content[0].text, /台詞の意味を理解するために不可欠な視覚情報/)
     assert.match(upstreamBody.instructions, /英語は使わない/)
   } finally {
     globalThis.fetch = nativeFetch
