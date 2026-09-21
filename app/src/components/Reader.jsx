@@ -32,14 +32,15 @@ export default function Reader({ book, onBack }) {
   const pageInputRef = useRef(null)
   const pdfInputRef = useRef(null)
   const landscape = useOrientation()
-  const totalPages = book.pageCount
+  const {
+    rightImage, leftImage, rightOcr, leftOcr, ocrPages,
+    pageCount: totalPages, needsPdf,
+  } = useBookReader(book, pageIndex, pdfFile)
   const { singlePage, lastVisiblePage, canGoForward } = spreadState(
     pageIndex,
     totalPages,
     landscape,
   )
-
-  const { rightImage, leftImage, rightOcr, leftOcr, ocrPages, needsPdf } = useBookReader(book, pageIndex, pdfFile)
   const storyContext = useMemo(
     () => buildStoryContext(ocrPages, lastVisiblePage),
     [ocrPages, lastVisiblePage],
@@ -90,8 +91,8 @@ export default function Reader({ book, onBack }) {
     return () => window.removeEventListener('keydown', handleKey)
   }, [goBack, goForward, showSearch, editingPage, needsPdf])
 
-  // The cover is a singleton; all subsequent landscape spreads start on an
-  // odd zero-based PDF index (pages 2-3, 4-5, ...).
+  // Keep landscape navigation on normalized right/left pairs (pages 1-2,
+  // 3-4, ...). PDFs with a lone cover include an inside-cover blank page.
   useEffect(() => {
     if (landscape) setPageIndex(normalizeSpreadStart)
   }, [landscape])

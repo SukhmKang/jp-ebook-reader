@@ -8,44 +8,44 @@ import {
   spreadState,
 } from '../src/utils/spreadPagination.js'
 
-test('landscape keeps the cover by itself and pairs PDF pages 2-3', () => {
-  assert.deepEqual(spreadState(0, 259, true), {
-    singlePage: true,
-    lastVisiblePage: 0,
+test('landscape pairs PDF pages 1-2 from the first spread', () => {
+  assert.deepEqual(spreadState(0, 260, true), {
+    singlePage: false,
+    lastVisiblePage: 1,
     canGoForward: true,
   })
-  assert.equal(nextPageIndex(0, 259, true), 1)
-  assert.deepEqual(spreadState(1, 259, true), {
+  assert.equal(nextPageIndex(0, 260, true), 2)
+  assert.deepEqual(spreadState(2, 260, true), {
     singlePage: false,
-    lastVisiblePage: 2,
+    lastVisiblePage: 3,
     canGoForward: true,
   })
 })
 
 test('landscape navigation preserves right-left spread pairs', () => {
-  assert.equal(nextPageIndex(1, 259, true), 3)
-  assert.equal(nextPageIndex(9, 259, true), 11)
-  assert.equal(previousPageIndex(11, true), 9)
-  assert.equal(previousPageIndex(1, true), 0)
+  assert.equal(nextPageIndex(0, 260, true), 2)
+  assert.equal(nextPageIndex(8, 260, true), 10)
+  assert.equal(previousPageIndex(10, true), 8)
+  assert.equal(previousPageIndex(2, true), 0)
 })
 
 test('page jumps select the spread containing the requested page', () => {
   assert.equal(normalizeSpreadStart(0), 0)
-  assert.equal(normalizeSpreadStart(1), 1)
-  assert.equal(normalizeSpreadStart(2), 1)
-  assert.equal(normalizeSpreadStart(9), 9)
-  assert.equal(normalizeSpreadStart(10), 9)
+  assert.equal(normalizeSpreadStart(1), 0)
+  assert.equal(normalizeSpreadStart(2), 2)
+  assert.equal(normalizeSpreadStart(9), 8)
+  assert.equal(normalizeSpreadStart(10), 10)
 })
 
 test('odd and even page counts end without an invalid facing page', () => {
-  assert.deepEqual(spreadState(257, 259, true), {
+  assert.deepEqual(spreadState(258, 260, true), {
     singlePage: false,
-    lastVisiblePage: 258,
+    lastVisiblePage: 259,
     canGoForward: false,
   })
-  assert.deepEqual(spreadState(271, 272, true), {
+  assert.deepEqual(spreadState(272, 273, true), {
     singlePage: true,
-    lastVisiblePage: 271,
+    lastVisiblePage: 272,
     canGoForward: false,
   })
 })
