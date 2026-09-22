@@ -53,3 +53,8 @@ pressure; increase it cautiously for throughput. Ordinary OCR without
 Each ranking is versioned by model revision, formatter version and source
 dictionary SHA-256. The reader ignores incompatible rankings and falls back to
 the native deterministic dictionary order.
+
+Before changing an OCR file, `rerank_ocr.py` saves its original under
+`ocr_pipeline/cache/pre-sense-reranker/`. With `--upload`, it also preserves the
+original R2 object under `backups/pre-sense-reranker/` before replacing the live
+copy. These backups are never overwritten by subsequent runs.
