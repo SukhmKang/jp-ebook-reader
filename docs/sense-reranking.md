@@ -29,18 +29,22 @@ reuse the Hugging Face cache.
 
 ## Process books
 
-For one book:
+The standalone migration command works with existing OCR caches and avoids
+rerunning Google Vision. For one book:
 
 ```sh
-venv-reranker/bin/python ocr_pipeline/ocr_pipeline.py pdfs/BOOK.pdf \
-  --output-dir ocr_pipeline/cache --rerank-senses
+venv-reranker/bin/python rerank_ocr.py \
+  ocr_pipeline/cache/ocr/BOOK.json --upload
 ```
 
-For every PDF:
+For every cached book:
 
 ```sh
-venv-reranker/bin/python bulk_ocr_upload.py --rerank-senses
+venv-reranker/bin/python rerank_ocr.py --upload
 ```
+
+The OCR commands also accept `--rerank-senses` locally, allowing newly scanned
+books to be ranked before their initial upload.
 
 `--rerank-batch-size` defaults to 24. Lower it if macOS reports MPS memory
 pressure; increase it cautiously for throughput. Ordinary OCR without
