@@ -24,7 +24,7 @@ load_dotenv(Path(__file__).parent / "ocr_pipeline" / ".env")
 load_dotenv()
 
 DICT_PATH = Path("app/public/dict/jmdict.json")
-R2_KEY = "jmdict.json"
+R2_KEY = "jmdict-v4.json"
 
 
 def main() -> None:

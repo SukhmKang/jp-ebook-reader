@@ -7,6 +7,7 @@
 __pycache__/
 *.pyc
 venv/
+venv-reranker/
 
 # Source media (large files, personal content)
 jpegs/

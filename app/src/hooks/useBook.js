@@ -33,17 +33,32 @@ export function useBookReader(book, pageIndex, pdfFile) {
   // Reset and load OCR when book changes
   useEffect(() => {
     if (!book) return
+    let cancelled = false
     setOcrPages(null)
     setPdfPageCount(null)
     setLeftImage(null)
     setRightImage(null)
-    getOcr(book.id).then(setOcrPages)
+    getOcr(book.id).then((pages) => { if (!cancelled) setOcrPages(pages) })
+
+    // Books imported before contextual rankings existed upgrade themselves
+    // opportunistically. Failure is ignored so opening remains fully offline.
+    if (!book.senseReranker?.modelRevision) {
+      fetchOcrJson(book.id).then(async ({ pages, senseReranker }) => {
+        if (cancelled || !senseReranker) return
+        setOcrPages(pages)
+        await Promise.all([
+          saveOcr(book.id, pages),
+          saveBook({ ...book, senseReranker }),
+        ])
+      }).catch(() => {})
+    }
 
     if (book.storedAs === 'pdf') {
       setPdfReady(sessionPdfDocs.has(book.id))
     } else {
       setPdfReady(true)
     }
+    return () => { cancelled = true }
   }, [book?.id])
 
   // Load PDF doc into session cache when user provides a file

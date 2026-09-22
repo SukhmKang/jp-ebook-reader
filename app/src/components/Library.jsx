@@ -40,6 +40,7 @@ export default function Library({ onOpenBook }) {
         pageCount: ocrJson.pages.length,
         storedAs: 'pdf',
         importedAt: Date.now(),
+        senseReranker: ocrJson.senseReranker,
       })
       await saveOcr(filename, ocrJson.pages)
       setProgress(1)

@@ -1,0 +1,3 @@
+# Optional dependencies for --rerank-senses. Ordinary OCR does not require them.
+torch>=2.2,<3
+transformers>=5.17,<6

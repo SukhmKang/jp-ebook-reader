@@ -17,8 +17,9 @@ export default function WordOverlay({ ocrPage, imageRect, onWordTap }) {
           // Compute each word's char offset within the paragraph text
           let charOffset = 0
           return para.words?.map((word, wi) => {
-            const offset = charOffset
-            charOffset += word.text.length
+            const found = para.text.indexOf(word.text, charOffset)
+            const offset = found >= 0 ? found : charOffset
+            charOffset = offset + word.text.length
 
             const { x, y, w, h } = word.bounding_box
             const sx = offsetX + x * scaleX - 4
@@ -38,6 +39,7 @@ export default function WordOverlay({ ocrPage, imageRect, onWordTap }) {
                     paraText: para.text,
                     pageText,
                     charOffset: offset,
+                    senseRanking: word.sense_ranking,
                     x: sx + sw / 2,
                     y: sy + sh / 2,
                   })

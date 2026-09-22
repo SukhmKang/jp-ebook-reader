@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 
 import { deinflect, entryMatchesConditions } from '../src/utils/deinflect.js'
-import { buildLookupResults } from '../src/utils/lookup.js'
+import { applySenseRanking, buildLookupResults } from '../src/utils/lookup.js'
 
 function termsFor(source) {
   return new Set(deinflect(source).map(({ term }) => term))
@@ -52,4 +52,39 @@ test('uses longest grammar-valid span and prefers the tokenizer lemma', () => {
   const results = buildLookupResults(dict, '言われたこと', '動詞', '言う', '言われた')
   assert.equal(results[0].span, '言われた')
   assert.equal(results[0].entries[0].headword, '言う')
+})
+
+test('contextual ranking moves a sense first without hiding other senses', () => {
+  const results = [{
+    term: '頭',
+    span: '頭',
+    entries: [
+      {
+        id: 'one',
+        headword: '頭',
+        senses: [
+          { id: 'one:1', glosses: ['head'] },
+          { id: 'one:2', glosses: ['leader'] },
+        ],
+        meanings: ['head', 'leader'],
+      },
+      {
+        id: 'two',
+        headword: '頭',
+        senses: [{ id: 'two:1', glosses: ['counter for large animals'] }],
+        meanings: ['counter for large animals'],
+      },
+    ],
+  }]
+  const ranked = applySenseRanking(results, {
+    senses: [
+      { id: 'one:2', score: 0.8 },
+      { id: 'two:1', score: 0.15 },
+      { id: 'one:1', score: 0.05 },
+    ],
+  })
+
+  assert.deepEqual(ranked[0].entries.map(({ id }) => id), ['one', 'two'])
+  assert.deepEqual(ranked[0].entries[0].meanings, ['leader', 'head'])
+  assert.equal(ranked[0].entries[0].senses.length, 2)
 })

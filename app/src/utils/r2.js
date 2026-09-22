@@ -13,6 +13,7 @@ function stripOcr(raw) {
           words: (para.words ?? []).map((word) => ({
             text: word.text,
             bounding_box: word.bounding_box,
+            sense_ranking: word.sense_ranking ?? null,
           })),
         })),
       })),
@@ -26,5 +27,5 @@ export async function fetchOcrJson(filename) {
   const res = await fetch(url, { cache: 'no-store' })
   if (!res.ok) throw new Error(`OCR data not found for "${filename}". Run the pipeline first.`)
   const raw = await res.json()
-  return { pages: stripOcr(raw) }
+  return { pages: stripOcr(raw), senseReranker: raw.sense_reranker ?? null }
 }

@@ -6,11 +6,12 @@
  *   node scripts/build_dict.js path/to/jmdict-eng-*.json
  *
  * Output:
- *   public/dict/jmdict.json
+ *   public/dict/jmdict.json (uploaded as a versioned R2 object)
  */
 
 import fs from 'fs'
 import path from 'path'
+import crypto from 'crypto'
 
 const inputPath = process.argv[2]
 if (!inputPath) {
@@ -25,12 +26,20 @@ const raw = JSON.parse(fs.readFileSync(inputPath, 'utf8'))
 const words = raw.words ?? []
 console.log(`Processing ${words.length} entries...`)
 
-const index = {}
+const index = {
+  __meta__: {
+    version: 4,
+    sourceSha256: crypto.createHash('sha256').update(fs.readFileSync(inputPath)).digest('hex'),
+  },
+  terms: {},
+  entries: {},
+}
 
 function addEntry(key, record) {
   if (!key) return
-  if (!index[key]) index[key] = []
-  index[key].push(record)
+  index.entries[record.id] = record
+  if (!index.terms[key]) index.terms[key] = []
+  if (!index.terms[key].includes(record.id)) index.terms[key].push(record.id)
 }
 
 for (const entry of words) {
@@ -43,6 +52,23 @@ for (const entry of words) {
       .map((gloss) => gloss.text) ?? [])
     .filter(Boolean)
     .slice(0, 6) ?? []
+  // Sense IDs are stable across the upload pipeline and reader. The reranker
+  // must never address senses by their temporary position in a result list.
+  const senses = (entry.sense ?? []).map((sense, index) => ({
+    id: `${entry.id}:${index + 1}`,
+    number: index + 1,
+    pos: sense.partOfSpeech ?? [],
+    glosses: (sense.gloss ?? [])
+      .filter((gloss) => !gloss.lang || gloss.lang === 'eng')
+      .map((gloss) => gloss.text)
+      .filter(Boolean),
+    appliesToKanji: sense.appliesToKanji ?? ['*'],
+    appliesToKana: sense.appliesToKana ?? ['*'],
+    misc: sense.misc ?? [],
+    field: sense.field ?? [],
+    dialect: sense.dialect ?? [],
+    info: sense.info ?? [],
+  })).filter((sense) => sense.glosses.length)
   const common =
     (entry.kanji ?? []).some((k) => k.common) ||
     (entry.kana ?? []).some((k) => k.common)
@@ -53,7 +79,15 @@ for (const entry of words) {
   // Preserve the fields the CLI uses to rank homographs. Short property names
   // would save a little space, but named fields make the generated format easy
   // to inspect and backwards-compatible with the reader's existing records.
-  const record = { id: String(entry.id), headword, readings, reading: readings[0] ?? '', pos, meanings }
+  const record = {
+    id: String(entry.id),
+    headword,
+    readings,
+    reading: readings[0] ?? '',
+    pos,
+    meanings,
+    senses,
+  }
   if (common) record.common = true
   if (rare) record.rare = true
 
@@ -73,4 +107,4 @@ fs.mkdirSync(path.dirname(outputPath), { recursive: true })
 fs.writeFileSync(outputPath, JSON.stringify(index), 'utf8')
 
 const sizeMB = (fs.statSync(outputPath).size / 1024 / 1024).toFixed(1)
-console.log(`Done! ${Object.keys(index).length} keys, ${sizeMB} MB`)
+console.log(`Done! ${Object.keys(index.terms).length} keys, ${sizeMB} MB`)

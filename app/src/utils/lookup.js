@@ -101,6 +101,13 @@ function readings(record) {
   return record.readings ?? (record.reading ? [record.reading] : [])
 }
 
+function recordsForTerm(dict, term) {
+  if (dict.terms && dict.entries) {
+    return (dict.terms[term] ?? []).map((id) => dict.entries[id]).filter(Boolean)
+  }
+  return dict[term] ?? []
+}
+
 // The same exact-spelling/readings/commonness/rarity ordering used by the CLI.
 function dictionaryRank(term, record) {
   const headword = primarySpelling(record, term)
@@ -139,8 +146,8 @@ function matchSpan(dict, span, preferredPos, preferredSpelling, seenRecords) {
 
   for (const candidate of deinflect(span)) {
     for (const [term, conditions] of dictionaryTermsForCandidate(candidate)) {
-      const records = dict[term]
-      if (!records) continue
+      const records = recordsForTerm(dict, term)
+      if (!records.length) continue
       for (const record of records) {
         if (seenRecords.has(record)) continue
         if (!entryMatchesConditions(record.pos, conditions)) continue
@@ -170,7 +177,7 @@ function matchSpan(dict, span, preferredPos, preferredSpelling, seenRecords) {
 
 /** Exact particle lookup, mirroring lookup_particle in the CLI. */
 function matchParticle(dict, surface) {
-  return (dict[surface] ?? [])
+  return recordsForTerm(dict, surface)
     .filter((record) => (record.pos ?? []).includes('prt'))
     .map((record) => ({ record, rank: dictionaryRank(surface, record) }))
     .sort((a, b) => compareRank(a.rank, b.rank))
@@ -216,4 +223,45 @@ export function buildLookupResults(
   }
 
   return []
+}
+
+/**
+ * Reorder complete entries and their senses using an upload-time model result.
+ * Unranked senses remain visible in dictionary order.
+ */
+export function applySenseRanking(results, senseRanking) {
+  const ranked = senseRanking?.senses ?? []
+  if (!ranked.length) return results
+  const order = new Map(ranked.map((item, index) => [item.id, index]))
+  const fallback = ranked.length + 1
+
+  const groups = results.map((group, groupIndex) => {
+    const entries = group.entries.map((entry, entryIndex) => {
+      if (!entry.senses?.length) {
+        return { entry, rank: fallback, entryIndex }
+      }
+      const senses = entry.senses
+        .map((sense, senseIndex) => ({ sense, senseIndex, rank: order.get(sense.id) ?? fallback }))
+        .sort((a, b) => a.rank - b.rank || a.senseIndex - b.senseIndex)
+        .map(({ sense }) => sense)
+      const entryRank = Math.min(...senses.map((sense) => order.get(sense.id) ?? fallback))
+      return {
+        entry: {
+          ...entry,
+          senses,
+          meanings: senses.map((sense) => sense.glosses.join('; ')),
+        },
+        rank: entryRank,
+        entryIndex,
+      }
+    })
+    entries.sort((a, b) => a.rank - b.rank || a.entryIndex - b.entryIndex)
+    return {
+      group: { ...group, entries: entries.map(({ entry }) => entry) },
+      rank: Math.min(...entries.map((entry) => entry.rank)),
+      groupIndex,
+    }
+  })
+  groups.sort((a, b) => a.rank - b.rank || a.groupIndex - b.groupIndex)
+  return groups.map(({ group }) => group)
 }

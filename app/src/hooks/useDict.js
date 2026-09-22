@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { getDict as getDbDict, saveDict } from '../db'
-import { buildLookupResults } from '../utils/lookup'
+import { applySenseRanking, buildLookupResults } from '../utils/lookup'
 
 // Bump whenever the dict index format/content changes (and re-upload jmdict.json
 // to R2 — see ../../upload_dict.py). A mismatch invalidates the IndexedDB cache
@@ -8,7 +8,7 @@ import { buildLookupResults } from '../utils/lookup'
 //   1 — original { reading, pos, meanings }
 //   2 — adds `common` flag (build_dict.js)
 //   3 — adds primary spelling, readings, all POS tags, and rarity for CLI-parity ranking
-const DICT_VERSION = 3
+const DICT_VERSION = 4
 
 let dictSingleton = null
 let dictPromise = null
@@ -27,7 +27,7 @@ function getDict() {
     try {
       const r2Base = import.meta.env.VITE_R2_PUBLIC_URL?.replace(/\/$/, '')
       if (!r2Base) throw new Error('VITE_R2_PUBLIC_URL is not set')
-      const response = await fetch(`${r2Base}/jmdict.json?v=${DICT_VERSION}`)
+      const response = await fetch(`${r2Base}/jmdict-v${DICT_VERSION}.json`)
       if (!response.ok) throw new Error(`Dictionary download failed (${response.status})`)
       const data = await response.json()
       dictSingleton = data
@@ -58,8 +58,9 @@ export function useDict() {
   }, [])
 
   // lookup({ text, paraText, charOffset }, tokenizer)
-  function lookup(tokenizer, { text, paraText, charOffset }) {
+  function lookup(tokenizer, lookupTarget) {
     if (!ref.current) return []
+    const { text, paraText, charOffset, senseRanking } = lookupTarget
 
     // Slice from charOffset to end of paragraph — the span we scan from.
     const searchText = (paraText ? paraText.slice(charOffset) : text) || text
@@ -79,7 +80,12 @@ export function useDict() {
 
     // Condition-aware deinflection + longest-span match + POS-affinity ranking,
     // ported from the `jp` CLI (see utils/lookup.js, utils/deinflect.js).
-    return buildLookupResults(ref.current, searchText, preferredPos, preferredSpelling, text)
+    const results = buildLookupResults(ref.current, searchText, preferredPos, preferredSpelling, text)
+    const dictionarySha256 = ref.current.__meta__?.sourceSha256
+    if (senseRanking?.dictionarySha256 && senseRanking.dictionarySha256 === dictionarySha256) {
+      return applySenseRanking(results, senseRanking)
+    }
+    return results
   }
 
   return { ready, lookup }
