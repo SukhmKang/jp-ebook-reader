@@ -110,7 +110,7 @@ export default function DictPopup({ tap, storyContext, onClose }) {
                       {m}
                       {entry.senses?.[mi]?.id === entry.contextualSenseId && (
                         <span
-                          className="ml-1 text-[10px] align-super"
+                          className="ml-1 inline-block text-[10px] align-middle leading-none"
                           style={{ color: 'var(--vermillion)' }}
                           title="文脈に合う意味"
                           aria-label="文脈に合う意味"
