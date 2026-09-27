@@ -12,6 +12,7 @@ import math
 import os
 import subprocess
 import tempfile
+import time
 from pathlib import Path
 
 # The Xet transfer path has proven unreliable for this private 1.1 GB file on
@@ -19,7 +20,7 @@ from pathlib import Path
 os.environ.setdefault("HF_HUB_DISABLE_XET", "1")
 
 MODEL_ID = "sukhmkang/japanese-sense-reranker-xlmr-large"
-MODEL_REVISION = "76a5ce8020db7b5717b88973db8cefafd13eb1b1"
+MODEL_REVISION = "16a08022e8f0051c0cee54a03da92000dbbaa8fd"
 FORMATTER_VERSION = 1
 MAX_LENGTH = 256
 CANDIDATE_MAX_LENGTH = 72
@@ -144,11 +145,73 @@ def score_occurrences(requests: dict, batch_size: int = 24) -> list[list[dict]]:
     return rankings
 
 
+def score_occurrences_remote(
+    requests: dict,
+    endpoint_url: str,
+    batch_size: int = 64,
+    pairs_per_request: int = 768,
+) -> list[list[dict]]:
+    """Score occurrences on a private HF endpoint without sending one huge request."""
+    try:
+        import httpx
+        from tqdm import tqdm
+    except ImportError as error:
+        raise RuntimeError("Remote sense reranking requires httpx and tqdm") from error
+
+    token = os.environ.get("HF_API_KEY") or os.environ.get("HF_TOKEN")
+    if not token:
+        raise RuntimeError("HF_API_KEY or HF_TOKEN is required for the private endpoint")
+
+    occurrences = requests["occurrences"]
+    chunks = []
+    current = []
+    current_pairs = 0
+    for occurrence in occurrences:
+        pair_count = len(occurrence["candidates"])
+        if current and current_pairs + pair_count > pairs_per_request:
+            chunks.append(current)
+            current = []
+            current_pairs = 0
+        current.append(occurrence)
+        current_pairs += pair_count
+    if current:
+        chunks.append(current)
+
+    rankings = []
+    progress = tqdm(total=sum(len(item["candidates"]) for item in occurrences), desc="Ranking senses", unit="pair")
+    headers = {"Authorization": f"Bearer {token}"}
+    with httpx.Client(timeout=httpx.Timeout(600.0, connect=30.0), headers=headers) as client:
+        for chunk_index, chunk in enumerate(chunks, 1):
+            for attempt in range(6):
+                try:
+                    response = client.post(endpoint_url, json={"inputs": chunk, "batch_size": batch_size})
+                except httpx.RequestError:
+                    if attempt == 5:
+                        raise
+                    time.sleep(min(30, 2 ** attempt))
+                    continue
+                if response.status_code not in {429, 500, 502, 503, 504}:
+                    response.raise_for_status()
+                    break
+                if attempt == 5:
+                    response.raise_for_status()
+                time.sleep(min(30, 2 ** attempt))
+            payload = response.json()
+            chunk_rankings = payload.get("rankings") if isinstance(payload, dict) else None
+            if chunk_rankings is None or len(chunk_rankings) != len(chunk):
+                raise RuntimeError(f"Unexpected endpoint response for chunk {chunk_index}: {payload!r}")
+            rankings.extend(chunk_rankings)
+            progress.update(sum(len(item["candidates"]) for item in chunk))
+    progress.close()
+    return rankings
+
+
 def enrich_ocr_json(
     ocr_path: Path,
     app_dir: Path,
     dictionary_path: Path,
     batch_size: int = 24,
+    endpoint_url: str | None = None,
 ) -> int:
     ocr_path = ocr_path.resolve()
     app_dir = app_dir.resolve()
@@ -178,7 +241,11 @@ def enrich_ocr_json(
     if not requests.get("dictionarySha256"):
         raise RuntimeError("Dictionary is missing __meta__.sourceSha256; rebuild dictionary version 4.")
 
-    rankings = score_occurrences(requests, batch_size=batch_size)
+    rankings = (
+        score_occurrences_remote(requests, endpoint_url, batch_size=batch_size)
+        if endpoint_url
+        else score_occurrences(requests, batch_size=batch_size)
+    )
     ocr = json.loads(ocr_path.read_text())
     for occurrence, ranking in zip(requests["occurrences"], rankings):
         word = ocr["pages"][occurrence["pageIndex"]]["blocks"][occurrence["blockIndex"]]["paragraphs"][occurrence["paragraphIndex"]]["words"][occurrence["wordIndex"]]

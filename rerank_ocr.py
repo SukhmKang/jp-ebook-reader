@@ -25,6 +25,10 @@ def main() -> None:
     )
     parser.add_argument("ocr_json", type=Path, nargs="*", help="OCR JSON files; defaults to every cache file")
     parser.add_argument("--batch-size", type=int, default=24)
+    parser.add_argument(
+        "--endpoint-url",
+        help="Private Hugging Face Inference Endpoint URL; omit to run locally",
+    )
     parser.add_argument("--upload", action="store_true", help="Replace each corresponding R2 OCR object")
     parser.add_argument(
         "--backup-dir",
@@ -53,6 +57,7 @@ def main() -> None:
             app_dir=ROOT / "app",
             dictionary_path=ROOT / "app" / "public" / "dict" / "jmdict.json",
             batch_size=args.batch_size,
+            endpoint_url=args.endpoint_url,
         )
         print(f"[sense] Ranked {count} ambiguous lookup occurrences.")
         if r2 is not None:
