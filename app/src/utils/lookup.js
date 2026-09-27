@@ -232,6 +232,7 @@ export function buildLookupResults(
 export function applySenseRanking(results, senseRanking) {
   const ranked = senseRanking?.senses ?? []
   if (!ranked.length) return results
+  const contextualSenseId = ranked[0].id
   const order = new Map(ranked.map((item, index) => [item.id, index]))
   const fallback = ranked.length + 1
 
@@ -250,6 +251,9 @@ export function applySenseRanking(results, senseRanking) {
           ...entry,
           senses,
           meanings: senses.map((sense) => sense.glosses.join('; ')),
+          contextualSenseId: senses.some((sense) => sense.id === contextualSenseId)
+            ? contextualSenseId
+            : undefined,
         },
         rank: entryRank,
         entryIndex,

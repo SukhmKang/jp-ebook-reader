@@ -105,7 +105,21 @@ export default function DictPopup({ tap, storyContext, onClose }) {
                 </div>
                 <div className="text-xs mb-1" style={{ color: 'var(--paper-faint)' }}>{entry.pos?.join(', ')}</div>
                 <ol className="text-sm list-decimal list-inside space-y-0.5" style={{ color: 'var(--paper-dim)' }}>
-                  {entry.meanings?.map((m, mi) => <li key={mi}>{m}</li>)}
+                  {entry.meanings?.map((m, mi) => (
+                    <li key={mi}>
+                      {m}
+                      {entry.senses?.[mi]?.id === entry.contextualSenseId && (
+                        <span
+                          className="ml-1 text-[10px] align-super"
+                          style={{ color: 'var(--vermillion)' }}
+                          title="文脈に合う意味"
+                          aria-label="文脈に合う意味"
+                        >
+                          ★
+                        </span>
+                      )}
+                    </li>
+                  ))}
                 </ol>
               </div>
             ))

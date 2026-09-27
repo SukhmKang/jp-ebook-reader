@@ -87,4 +87,6 @@ test('contextual ranking moves a sense first without hiding other senses', () =>
   assert.deepEqual(ranked[0].entries.map(({ id }) => id), ['one', 'two'])
   assert.deepEqual(ranked[0].entries[0].meanings, ['leader', 'head'])
   assert.equal(ranked[0].entries[0].senses.length, 2)
+  assert.equal(ranked[0].entries[0].contextualSenseId, 'one:2')
+  assert.equal(ranked[0].entries[1].contextualSenseId, undefined)
 })
