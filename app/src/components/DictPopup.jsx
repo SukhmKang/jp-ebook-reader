@@ -108,7 +108,7 @@ export default function DictPopup({ tap, storyContext, onClose }) {
                   {entry.meanings?.map((m, mi) => (
                     <li key={mi}>
                       {m}
-                      {entry.senses?.[mi]?.id === entry.contextualSenseId && (
+                      {entry.contextualSenseId != null && entry.senses?.[mi]?.id === entry.contextualSenseId && (
                         <span
                           className="ml-1 inline-block text-[10px] align-middle leading-none"
                           style={{ color: 'var(--vermillion)' }}
