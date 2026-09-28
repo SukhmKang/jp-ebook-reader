@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import WordOverlay from './WordOverlay'
-import { compressCrop, selectionRect, sourceCropRect } from '../utils/imageSelection'
+import { compressSpreadCrop, imageBounds, selectionRect } from '../utils/imageSelection'
 
 function getContainedRect(containerW, containerH, naturalW, naturalH) {
   if (!naturalW || !naturalH) return null
@@ -21,12 +21,10 @@ function getContainedRect(containerW, containerH, naturalW, naturalH) {
   return { width: renderedW, height: renderedH, offsetX, offsetY }
 }
 
-function PagePanel({ imageData, ocrPage, onWordTap, onImageSelect, selectionMode, single = false }) {
+function PagePanel({ imageData, ocrPage, onWordTap, single = false }) {
   const containerRef = useRef(null)
   const imgRef = useRef(null)
   const [imageRect, setImageRect] = useState(null)
-  const [drag, setDrag] = useState(null)
-  const suppressClickRef = useRef(false)
 
   function updateRect() {
     const container = containerRef.current
@@ -46,64 +44,11 @@ function PagePanel({ imageData, ocrPage, onWordTap, onImageSelect, selectionMode
     return () => ro.disconnect()
   }, [])
 
-  function localPoint(event) {
-    const bounds = containerRef.current.getBoundingClientRect()
-    return { x: event.clientX - bounds.left, y: event.clientY - bounds.top }
-  }
-
-  function handlePointerDown(event) {
-    if ((!event.shiftKey && !selectionMode) || !imageData || !imageRect) return
-    event.preventDefault()
-    event.stopPropagation()
-    event.currentTarget.setPointerCapture(event.pointerId)
-    const point = localPoint(event)
-    setDrag({ start: point, current: point })
-    suppressClickRef.current = true
-  }
-
-  function handlePointerMove(event) {
-    if (!drag) return
-    event.preventDefault()
-    setDrag((value) => ({ ...value, current: localPoint(event) }))
-  }
-
-  function handlePointerUp(event) {
-    if (!drag) return
-    event.preventDefault()
-    event.stopPropagation()
-    const completed = selectionRect(drag.start, localPoint(event), imageRect)
-    setDrag(null)
-    if (completed && imgRef.current) {
-      const crop = sourceCropRect(
-        completed,
-        imageRect,
-        imgRef.current.naturalWidth,
-        imgRef.current.naturalHeight,
-      )
-      onImageSelect?.(compressCrop(imgRef.current, crop))
-    }
-    setTimeout(() => { suppressClickRef.current = false }, 100)
-  }
-
-  const visibleSelection = drag && imageRect
-    ? selectionRect(drag.start, drag.current, imageRect)
-    : null
-
   return (
     <div
       ref={containerRef}
-      className={`relative h-full ${single ? 'w-full' : 'flex-shrink-0'} ${selectionMode ? 'cursor-crosshair' : ''}`}
-      onPointerDown={handlePointerDown}
-      onPointerMove={handlePointerMove}
-      onPointerUp={handlePointerUp}
-      onPointerCancel={() => setDrag(null)}
-      onClickCapture={(event) => {
-        if (suppressClickRef.current) {
-          event.preventDefault()
-          event.stopPropagation()
-        }
-      }}
-      style={{ touchAction: selectionMode ? 'none' : undefined }}
+      data-page-panel
+      className={`relative h-full ${single ? 'w-full' : 'flex-shrink-0'}`}
     >
       {imageData ? (
         <img
@@ -118,19 +63,6 @@ function PagePanel({ imageData, ocrPage, onWordTap, onImageSelect, selectionMode
         <div className="h-full aspect-[2/3] bg-zinc-900" />
       )}
       <WordOverlay ocrPage={ocrPage} imageRect={imageRect} onWordTap={onWordTap} />
-      {visibleSelection && (
-        <div
-          className="pointer-events-none absolute z-20 border-2"
-          style={{
-            left: visibleSelection.x,
-            top: visibleSelection.y,
-            width: visibleSelection.width,
-            height: visibleSelection.height,
-            borderColor: 'var(--vermillion)',
-            background: 'rgba(193, 67, 45, 0.16)',
-          }}
-        />
-      )}
     </div>
   )
 }
@@ -142,8 +74,82 @@ export default function PageSpread({
   selectionMode = false,
   singlePage = false,
 }) {
+  const spreadRef = useRef(null)
   const startX = useRef(null)
   const multiTouch = useRef(false)
+  const dragRef = useRef(null)
+  const suppressClickRef = useRef(false)
+  const [drag, setDrag] = useState(null)
+
+  function localPoint(event) {
+    const bounds = spreadRef.current.getBoundingClientRect()
+    return { x: event.clientX - bounds.left, y: event.clientY - bounds.top }
+  }
+
+  function visiblePages() {
+    const spread = spreadRef.current
+    if (!spread) return []
+    const spreadBounds = spread.getBoundingClientRect()
+    return [...spread.querySelectorAll('[data-page-panel]')].flatMap((panel) => {
+      const image = panel.querySelector('img')
+      if (!image?.naturalWidth || !image.naturalHeight) return []
+      const panelBounds = panel.getBoundingClientRect()
+      const contained = getContainedRect(
+        panel.clientWidth, panel.clientHeight, image.naturalWidth, image.naturalHeight,
+      )
+      return [{
+        image,
+        rect: {
+          offsetX: panelBounds.left - spreadBounds.left + contained.offsetX,
+          offsetY: panelBounds.top - spreadBounds.top + contained.offsetY,
+          width: contained.width,
+          height: contained.height,
+        },
+      }]
+    })
+  }
+
+  function handlePointerDown(event) {
+    if ((!event.shiftKey && !selectionMode) || event.button !== 0) return
+    const pages = visiblePages()
+    const point = localPoint(event)
+    const onImage = pages.some(({ rect }) =>
+      point.x >= rect.offsetX && point.x <= rect.offsetX + rect.width &&
+      point.y >= rect.offsetY && point.y <= rect.offsetY + rect.height
+    )
+    if (!onImage) return
+    event.preventDefault()
+    event.stopPropagation()
+    event.currentTarget.setPointerCapture(event.pointerId)
+    const next = { start: point, current: point, pages, bounds: imageBounds(pages) }
+    dragRef.current = next
+    setDrag(next)
+    suppressClickRef.current = true
+  }
+
+  function handlePointerMove(event) {
+    if (!dragRef.current) return
+    event.preventDefault()
+    const next = { ...dragRef.current, current: localPoint(event) }
+    dragRef.current = next
+    setDrag(next)
+  }
+
+  function handlePointerUp(event) {
+    const active = dragRef.current
+    if (!active) return
+    event.preventDefault()
+    event.stopPropagation()
+    const completed = selectionRect(active.start, localPoint(event), active.bounds)
+    dragRef.current = null
+    setDrag(null)
+    if (completed) onImageSelect?.(compressSpreadCrop(completed, active.pages))
+    setTimeout(() => { suppressClickRef.current = false }, 100)
+  }
+
+  const visibleSelection = drag
+    ? selectionRect(drag.start, drag.current, drag.bounds)
+    : null
 
   const handleTouchStart = useCallback((e) => {
     if (selectionMode) { startX.current = null; return }
@@ -166,16 +172,45 @@ export default function PageSpread({
 
   return (
     <div
-      className="flex w-full h-full justify-center overflow-hidden"
+      ref={spreadRef}
+      className={`relative flex w-full h-full justify-center overflow-hidden ${selectionMode ? 'cursor-crosshair' : ''}`}
+      style={{ touchAction: selectionMode ? 'none' : undefined }}
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onPointerCancel={() => {
+        dragRef.current = null
+        suppressClickRef.current = false
+        setDrag(null)
+      }}
+      onClickCapture={(event) => {
+        if (suppressClickRef.current) {
+          event.preventDefault()
+          event.stopPropagation()
+        }
+      }}
     >
       <div className={`flex h-full ${singlePage ? 'w-full' : ''}`}>
         {!singlePage && (
-          <PagePanel imageData={leftImage} ocrPage={leftOcr} onWordTap={onWordTap} onImageSelect={onImageSelect} selectionMode={selectionMode} />
+          <PagePanel imageData={leftImage} ocrPage={leftOcr} onWordTap={onWordTap} />
         )}
-        <PagePanel imageData={rightImage} ocrPage={rightOcr} onWordTap={onWordTap} onImageSelect={onImageSelect} selectionMode={selectionMode} single={singlePage} />
+        <PagePanel imageData={rightImage} ocrPage={rightOcr} onWordTap={onWordTap} single={singlePage} />
       </div>
+      {visibleSelection && (
+        <div
+          className="pointer-events-none absolute z-20 border-2"
+          style={{
+            left: visibleSelection.x,
+            top: visibleSelection.y,
+            width: visibleSelection.width,
+            height: visibleSelection.height,
+            borderColor: 'var(--vermillion)',
+            background: 'rgba(193, 67, 45, 0.16)',
+          }}
+        />
+      )}
     </div>
   )
 }
