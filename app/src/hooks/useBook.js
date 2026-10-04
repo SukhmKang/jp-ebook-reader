@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import { getAllBooks, getPage, getOcr, saveBook, saveOcr, savePage } from '../db'
 import { loadPdfDoc, renderPdfPage } from '../utils/pdfToImages'
 import { fetchOcrJson } from '../utils/r2'
-import { LOOKUP_VERSION } from '../utils/lookup'
 
 // Session-level cache: survives navigation between books, cleared on page reload
 const sessionPdfDocs = new Map()
@@ -41,11 +40,11 @@ export function useBookReader(book, pageIndex, pdfFile) {
     setRightImage(null)
     getOcr(book.id).then((pages) => { if (!cancelled) setOcrPages(pages) })
 
-    // Refresh older ranking formats opportunistically. Offline reading still
-    // works; outdated rankings are ignored until the new OCR is available.
-    if ((book.senseReranker?.lookupVersion ?? 0) < LOOKUP_VERSION) {
+    // Books imported before contextual rankings existed upgrade themselves
+    // opportunistically. Failure is ignored so opening remains fully offline.
+    if (!book.senseReranker?.modelRevision) {
       fetchOcrJson(book.id).then(async ({ pages, senseReranker }) => {
-        if (cancelled || (senseReranker?.lookupVersion ?? 0) < LOOKUP_VERSION) return
+        if (cancelled || !senseReranker) return
         setOcrPages(pages)
         await Promise.all([
           saveOcr(book.id, pages),
