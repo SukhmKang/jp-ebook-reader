@@ -212,6 +212,7 @@ def enrich_ocr_json(
     dictionary_path: Path,
     batch_size: int = 24,
     endpoint_url: str | None = None,
+    reuse_compatible_rankings: bool = False,
 ) -> int:
     ocr_path = ocr_path.resolve()
     app_dir = app_dir.resolve()
@@ -241,12 +242,51 @@ def enrich_ocr_json(
     if not requests.get("dictionarySha256"):
         raise RuntimeError("Dictionary is missing __meta__.sourceSha256; rebuild dictionary version 4.")
 
-    rankings = (
-        score_occurrences_remote(requests, endpoint_url, batch_size=batch_size)
-        if endpoint_url
-        else score_occurrences(requests, batch_size=batch_size)
-    )
     ocr = json.loads(ocr_path.read_text())
+    old_rankings = {}
+    changed = []
+    for index, occurrence in enumerate(requests["occurrences"]):
+        word = ocr["pages"][occurrence["pageIndex"]]["blocks"][occurrence["blockIndex"]]["paragraphs"][occurrence["paragraphIndex"]]["words"][occurrence["wordIndex"]]
+        previous = word.get("sense_ranking") or {}
+        old_ids = sorted(item["id"] for item in previous.get("senses", []))
+        new_ids = sorted(item["id"] for item in occurrence["candidates"])
+        # This migration only changes the early particle shortcut. Identical
+        # sense IDs imply the same matched target and the same model input.
+        if (reuse_compatible_rankings and old_ids == new_ids and
+                previous.get("dictionarySha256") == requests["dictionarySha256"] and
+                previous.get("model") == MODEL_ID and
+                previous.get("modelRevision") == MODEL_REVISION and
+                previous.get("formatterVersion") == FORMATTER_VERSION):
+            old_rankings[index] = previous["senses"]
+        else:
+            changed.append((index, occurrence))
+
+    if changed:
+        score_requests = {**requests, "occurrences": [occurrence for _, occurrence in changed]}
+        new_rankings = (
+            score_occurrences_remote(score_requests, endpoint_url, batch_size=batch_size)
+            if endpoint_url
+            else score_occurrences(score_requests, batch_size=batch_size)
+        )
+    else:
+        new_rankings = []
+    if len(new_rankings) != len(changed):
+        raise RuntimeError("Reranker returned an incomplete set of rankings; OCR was not changed.")
+    rankings = [None] * len(requests["occurrences"])
+    for index, ranking in old_rankings.items():
+        rankings[index] = ranking
+    for (index, _), ranking in zip(changed, new_rankings):
+        rankings[index] = ranking
+    print(f"[sense] Reused {len(old_rankings)} compatible rankings; scored {len(changed)} changed occurrences.")
+    # A changed lookup can turn a formerly ambiguous word into an unambiguous
+    # one. Drop every old ranking before attaching the new candidate set.
+    for page in ocr.get("pages", []):
+        if not page:
+            continue
+        for block in page.get("blocks", []):
+            for paragraph in block.get("paragraphs", []):
+                for word in paragraph.get("words", []):
+                    word.pop("sense_ranking", None)
     for occurrence, ranking in zip(requests["occurrences"], rankings):
         word = ocr["pages"][occurrence["pageIndex"]]["blocks"][occurrence["blockIndex"]]["paragraphs"][occurrence["paragraphIndex"]]["words"][occurrence["wordIndex"]]
         word["sense_ranking"] = {
@@ -254,6 +294,8 @@ def enrich_ocr_json(
             "model": MODEL_ID,
             "modelRevision": MODEL_REVISION,
             "formatterVersion": FORMATTER_VERSION,
+            "lookupVersion": requests["lookupVersion"],
+            "target": occurrence["target"],
             "senses": ranking,
         }
 
@@ -262,7 +304,10 @@ def enrich_ocr_json(
         "model": MODEL_ID,
         "modelRevision": MODEL_REVISION,
         "formatterVersion": FORMATTER_VERSION,
+        "lookupVersion": requests["lookupVersion"],
         "occurrenceCount": len(rankings),
+        "reusedCount": len(old_rankings),
+        "scoredCount": len(changed),
     }
 
     ocr_path.write_text(json.dumps(ocr, ensure_ascii=False, separators=(",", ":")))

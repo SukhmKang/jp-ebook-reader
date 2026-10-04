@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { getDict as getDbDict, saveDict } from '../db'
-import { applySenseRanking, buildLookupResults } from '../utils/lookup'
+import { applySenseRanking, buildLookupResults, rankingMatchesLookup } from '../utils/lookup'
 
 // Bump whenever the dict index format/content changes (and re-upload jmdict.json
 // to R2 — see ../../upload_dict.py). A mismatch invalidates the IndexedDB cache
@@ -82,7 +82,7 @@ export function useDict() {
     // ported from the `jp` CLI (see utils/lookup.js, utils/deinflect.js).
     const results = buildLookupResults(ref.current, searchText, preferredPos, preferredSpelling, text)
     const dictionarySha256 = ref.current.__meta__?.sourceSha256
-    if (senseRanking?.dictionarySha256 && senseRanking.dictionarySha256 === dictionarySha256) {
+    if (rankingMatchesLookup(results, senseRanking, dictionarySha256)) {
       return applySenseRanking(results, senseRanking)
     }
     return results

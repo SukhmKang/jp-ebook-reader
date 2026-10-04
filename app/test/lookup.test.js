@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 
 import { deinflect, entryMatchesConditions } from '../src/utils/deinflect.js'
-import { applySenseRanking, buildLookupResults } from '../src/utils/lookup.js'
+import { applySenseRanking, buildLookupResults, rankingMatchesLookup } from '../src/utils/lookup.js'
 
 function termsFor(source) {
   return new Set(deinflect(source).map(({ term }) => term))
@@ -41,6 +41,16 @@ test('particle lookup excludes unrelated kana homographs', () => {
   const results = buildLookupResults(dict, 'に言われた', '助詞', 'に', 'に')
   assert.deepEqual(results.map(({ term }) => term), ['に'])
   assert.deepEqual(results[0].entries.map(({ id }) => id), ['particle'])
+})
+
+test('a longer word beats an isolated OCR fragment labeled as a particle', () => {
+  const dict = {
+    'や': [{ id: 'particle', headword: 'や', pos: ['prt'], meanings: ['or'] }],
+    'やがる': [{ id: 'nerve', headword: 'やがる', pos: ['v5r'], meanings: ['to have the nerve to'] }],
+  }
+  const results = buildLookupResults(dict, 'やがったんだ', '助詞', 'や', 'や')
+  assert.equal(results[0].span, 'やがった')
+  assert.equal(results[0].entries[0].id, 'nerve')
 })
 
 test('uses longest grammar-valid span and prefers the tokenizer lemma', () => {
@@ -89,4 +99,18 @@ test('contextual ranking moves a sense first without hiding other senses', () =>
   assert.equal(ranked[0].entries[0].senses.length, 2)
   assert.equal(ranked[0].entries[0].contextualSenseId, 'one:2')
   assert.equal(ranked[0].entries[1].contextualSenseId, undefined)
+})
+
+test('keeps old rankings only when their complete candidate set still matches', () => {
+  const dict = {
+    'や': [{ id: 'particle', headword: 'や', pos: ['prt'], senses: [{ id: 'particle:1' }] }],
+    'やがる': [{ id: 'nerve', headword: 'やがる', pos: ['v5r'], senses: [{ id: 'nerve:1' }] }],
+  }
+  const results = buildLookupResults(dict, 'やがったんだ', '助詞', 'や', 'や')
+  assert.equal(rankingMatchesLookup(results, {
+    dictionarySha256: 'sha', senses: [{ id: 'particle:1' }],
+  }, 'sha'), false)
+  assert.equal(rankingMatchesLookup(results, {
+    dictionarySha256: 'sha', senses: [{ id: 'nerve:1' }],
+  }, 'sha'), true)
 })

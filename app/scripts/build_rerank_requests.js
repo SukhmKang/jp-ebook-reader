@@ -10,7 +10,7 @@
 import fs from 'fs'
 import path from 'path'
 import kuromoji from 'kuromoji'
-import { buildLookupResults } from '../src/utils/lookup.js'
+import { buildLookupResults, LOOKUP_VERSION } from '../src/utils/lookup.js'
 
 const [ocrPath, dictPath, outputPath] = process.argv.slice(2)
 if (!ocrPath || !dictPath || !outputPath) {
@@ -111,6 +111,7 @@ for (let pageIndex = 0; pageIndex < (ocr.pages ?? []).length; pageIndex++) {
 
 fs.writeFileSync(outputPath, JSON.stringify({
   dictionarySha256: dict.__meta__?.sourceSha256 ?? null,
+  lookupVersion: LOOKUP_VERSION,
   occurrences,
 }))
 console.log(`Prepared ${occurrences.length} ambiguous lookup occurrences.`)

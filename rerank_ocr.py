@@ -30,10 +30,12 @@ def main() -> None:
         help="Private Hugging Face Inference Endpoint URL; omit to run locally",
     )
     parser.add_argument("--upload", action="store_true", help="Replace each corresponding R2 OCR object")
+    parser.add_argument("--reuse-compatible-rankings", action="store_true", help="Reuse unchanged model inputs during a lookup migration")
+    parser.add_argument("--backup-prefix", default="backups/pre-lookup-v2", help="R2 prefix for immutable backups")
     parser.add_argument(
         "--backup-dir",
         type=Path,
-        default=ROOT / "ocr_pipeline" / "cache" / "pre-sense-reranker",
+        default=ROOT / "ocr_pipeline" / "cache" / "pre-lookup-v2",
         help="Directory for immutable pre-reranking OCR copies",
     )
     args = parser.parse_args()
@@ -58,11 +60,12 @@ def main() -> None:
             dictionary_path=ROOT / "app" / "public" / "dict" / "jmdict.json",
             batch_size=args.batch_size,
             endpoint_url=args.endpoint_url,
+            reuse_compatible_rankings=args.reuse_compatible_rankings,
         )
         print(f"[sense] Ranked {count} ambiguous lookup occurrences.")
         if r2 is not None:
             filename = json.loads(path.read_text()).get("filename") or path.stem
-            backup_key = f"backups/pre-sense-reranker/{filename}.json"
+            backup_key = f"{args.backup_prefix.rstrip('/')}/{filename}.json"
             if not r2_object_exists(r2, bucket, backup_key):
                 upload_to_r2(r2, bucket, backup_key, backup_path.read_bytes())
                 print(f"[backup] Uploaded {backup_key}")

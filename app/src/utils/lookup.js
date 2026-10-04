@@ -1,9 +1,10 @@
-// JavaScript port of jp_cli/lookup.py — drives the deinflection engine against
-// the JMdict index to find the longest dictionary-matching span at a position,
-// then ranks the matched entries by POS affinity, preferred spelling and
-// commonness (the same intelligence the `jp` CLI uses).
+// Search forward from the tap using Yomitan's longest-to-shortest span order,
+// then rank JMdict matches using the app's existing dictionary preferences.
 
 import { deinflect, entryMatchesConditions, dictionaryTermsForCandidate } from './deinflect.js'
+
+// Bump when lookup changes the candidate set used by upload-time reranking.
+export const LOOKUP_VERSION = 2
 
 function isJapaneseChar(char) {
   const cp = char.codePointAt(0)
@@ -203,14 +204,14 @@ export function buildLookupResults(
   preferredSpelling = null,
   tappedText = null,
 ) {
-  // The CLI treats particles specially: exact surface match and only particle
-  // entries. Without this, short kana such as に rank unrelated nouns first.
-  if (preferredPos === '助詞' && tappedText) {
-    const entries = matchParticle(dict, tappedText)
-    if (entries.length) return [{ term: tappedText, entries, span: tappedText }]
-  }
-
   for (const prefix of japanesePrefixes(searchText)) {
+    // Kuromoji analyzes an isolated OCR box, which can be only the first
+    // character of a longer word (e.g. や / がっ / た). Its particle label is
+    // useful only after every longer dictionary span has been tried.
+    if (preferredPos === '助詞' && prefix === tappedText) {
+      const entries = matchParticle(dict, prefix)
+      if (entries.length) return [{ term: prefix, entries, span: prefix }]
+    }
     const groups = matchSpan(dict, prefix, preferredPos, preferredSpelling, new Set())
     if (groups.length) return groups.map((g) => ({ ...g, span: prefix }))
   }
@@ -268,4 +269,16 @@ export function applySenseRanking(results, senseRanking) {
   })
   groups.sort((a, b) => a.rank - b.rank || a.groupIndex - b.groupIndex)
   return groups.map(({ group }) => group)
+}
+
+/** Legacy rankings are safe to reuse only when the complete candidate set is unchanged. */
+export function rankingMatchesLookup(results, senseRanking, dictionarySha256) {
+  if (!results.length || senseRanking?.dictionarySha256 !== dictionarySha256) return false
+  if (senseRanking.lookupVersion === LOOKUP_VERSION && senseRanking.target !== results[0].span) return false
+  if (senseRanking.lookupVersion != null && senseRanking.lookupVersion !== LOOKUP_VERSION) return false
+  const rankedIds = (senseRanking.senses ?? []).map(({ id }) => id).sort()
+  const candidateIds = [...new Set(results.flatMap(({ entries }) =>
+    entries.flatMap(({ senses }) => (senses ?? []).map(({ id }) => id))))].sort()
+  return rankedIds.length > 0 && rankedIds.length === candidateIds.length &&
+    rankedIds.every((id, index) => id === candidateIds[index])
 }
